@@ -1,0 +1,1214 @@
+MASTER CLAUDE BUILD SPECIFICATION — INDICSAFE / INDIC-SAFEBENCH
+
+ROLE
+You are the lead research engineer, NLP researcher, ML engineer, dataset architect,
+backend engineer, annotation-interface engineer, QA engineer, and technical project
+manager for a BE major project.
+
+PROJECT
+IndicSafe / Indic-SafeBench
+
+Working title:
+"An Automated Framework for Generating and Benchmarking LLM Safety Data for Indian
+Multilingual, Transliterated, and Code-Mixed Languages"
+
+PRIMARY PRIORITY
+================
+The TOP PRIORITY is the DATASET GENERATOR.
+
+Do not start by building a classifier, a large dashboard, or a huge benchmark.
+Build a robust, reproducible, research-grade dataset-generation system first.
+
+The generator must be able to:
+
+Seed prompts/intents
+→ create multilingual variants
+→ create native-script and Romanized/transliterated variants
+→ create controlled code-mixed variants
+→ validate language/script/code-mix properties
+→ detect exact and near duplicates
+→ check semantic preservation
+→ check safety-intent consistency
+→ score/filter quality
+→ send items for human review
+→ preserve complete provenance
+→ version the dataset
+→ export benchmark-ready data.
+
+Only after the generator is stable should the project proceed to benchmarking,
+lightweight safety classification, failure analysis, and the secondary factuality/
+hallucination track.
+
+======================================================================
+1. RESEARCH POSITIONING
+======================================================================
+
+This is NOT merely a "safe vs unsafe classifier."
+
+The project has these connected contributions:
+
+1. Automated dataset-generation framework
+2. Multilingual/transliterated/code-mixed transformation system
+3. Dataset quality-control pipeline
+4. Human annotation workflow
+5. Indian-language safety benchmark
+6. Evaluation of existing safety systems
+7. Failure analysis
+8. Lightweight multilingual safety classifier
+9. Reproducible benchmarking
+10. Research documentation
+
+The supplied project review explicitly positions the work as a benchmark and
+dataset-engineering framework rather than simply a text classifier.
+
+Hinglish is an important motivating case, but the architecture must support
+multiple Indian languages, scripts, transliteration and code mixing.
+
+Primary safety labels:
+SAFE
+UNSAFE
+AMBIGUOUS
+
+Ambiguous samples must be retained.
+
+Safety is the primary track.
+
+A secondary factuality/hallucination track may be added later. Do not make it a
+requirement for every safety record and do not let it complicate the generator MVP.
+
+======================================================================
+2. RESEARCH QUESTIONS
+======================================================================
+
+Use these as the initial questions:
+
+RQ1: How do existing safety classifiers perform on multilingual and code-mixed
+Indian-language prompts?
+
+RQ2: How does performance vary across language, script, transliteration,
+code-mixing level, safety category, and transformation?
+
+RQ3: Which transformations or linguistic conditions contribute most to observed
+safety-classification failures?
+
+RQ4: Can a lightweight multilingual classifier trained on the benchmark improve
+safety detection on held-out Indian-language data?
+
+RQ5: Can automated generation plus quality filtering and human validation produce
+a reliable and scalable Indian-language safety benchmark?
+
+Optional secondary factuality question:
+How does factuality/hallucination behaviour vary when equivalent factual prompts are
+expressed in different Indian-language, transliterated, and code-mixed forms?
+
+Never assume a model fails. Measure it.
+
+======================================================================
+3. EXISTING SOURCE FILES
+======================================================================
+
+The team has 15 source files.
+
+Safety / LLM:
+- data_for_hub.json
+- NicheHazardQA.json
+
+Multilingual QA:
+- dataset_10k(1).jsonl
+
+Language identification:
+- LID_train.txt
+- LID_test(1).csv
+- MLI_train.csv
+- MLI_test.csv
+
+Translation:
+- MT_train.csv
+- MT_test.csv
+
+Linguistic support:
+- NER_train.csv
+- NER_test.csv
+- POS_train.csv
+- POS_test.csv
+- TN_train.csv
+- TN_test.csv
+
+Do NOT concatenate these blindly.
+
+Use them according to their actual roles:
+- NicheHazardQA → safety seed prompts
+- data_for_hub → safety-oriented prompt/response seed material
+- dataset_10k → factual/reference-backed seed questions and benign controls
+- LID/MLI → language/code-mix validation/support
+- MT → translation support
+- NER/POS/TN → optional linguistic analysis/support, not safety labels
+
+Preserve source provenance for every derived item.
+Never overwrite raw data.
+
+======================================================================
+4. MVP SCOPE
+======================================================================
+
+Do not begin with every Indian language.
+
+MVP:
+- 2–3 Indian languages
+- English reference condition
+- 2 script conditions where feasible
+- 2 code-mixing levels initially
+- small controlled seed set
+- complete end-to-end generator
+
+The architecture must allow additional languages through configuration rather than
+rewriting the core.
+
+Language selection should consider:
+- available source data
+- translation resources
+- script support
+- tokenizer/NLP support
+- native-speaker annotation availability
+- time/cost
+- linguistic diversity
+
+Hinglish should be an early priority.
+
+======================================================================
+5. GENERATOR MODULES
+======================================================================
+
+Implement these as modular components:
+
+A. Seed Manager
+B. Transformation Engine
+C. Translation Adapter
+D. Transliteration / Script Conversion Adapter
+E. Code-Mixing Engine
+F. Language Validator
+G. Script Validator
+H. Semantic Preservation Checker
+I. Duplicate Detector
+J. Near-Duplicate Detector
+K. Safety-Intent Consistency Checker
+L. Quality Scorer
+M. Human Review Queue
+N. Dataset Manager
+O. Provenance Manager
+P. Dataset Version Manager
+Q. Export Manager
+R. Generation Job Manager
+
+High-level flow:
+
+SEED POOL
+  ↓
+SEED MANAGER
+  ↓
+TRANSFORMATION ENGINE
+  ├─ translation
+  ├─ paraphrase
+  ├─ transliteration/script conversion
+  └─ code mixing
+  ↓
+LANGUAGE + SCRIPT VALIDATION
+  ↓
+DUPLICATE / NEAR-DUPLICATE CHECK
+  ↓
+SEMANTIC PRESERVATION
+  ↓
+SAFETY-INTENT CONSISTENCY
+  ↓
+QUALITY SCORING
+  ↓
+HUMAN REVIEW
+  ↓
+VERSIONED DATASET
+  ├─ benchmark export
+  ├─ ML export
+  └─ quality report
+
+======================================================================
+6. SEED-FIRST GENERATION
+======================================================================
+
+Do NOT simply ask an LLM to generate thousands of random prompts.
+
+Start with controlled seed prompts/intents.
+
+Each seed has:
+- seed_id
+- original prompt
+- source_dataset
+- source_reference
+- category
+- intended label
+- source_type
+- seed version
+
+Generate variants from the seed.
+
+Example:
+
+S001
+ ├─ English original
+ ├─ Hindi native script
+ ├─ Hindi Romanized
+ ├─ Hinglish low mix
+ ├─ Hinglish medium mix
+ └─ paraphrase
+
+Every child must be traceable to S001.
+
+======================================================================
+7. SAFETY TAXONOMY
+======================================================================
+
+Before large-scale generation:
+1. Review established safety taxonomies/literature.
+2. Define category names.
+3. Define inclusion/exclusion rules.
+4. Create examples.
+5. Freeze and version the taxonomy.
+
+Potential categories from the supplied project material include:
+- cybersecurity misuse
+- fraud/scams
+- privacy abuse
+- violence
+- dangerous instructions
+- illegal activities
+- harassment/abuse
+- self-harm
+- sexual safety
+- extremist/violent content
+- benign educational
+- benign everyday
+
+Do not treat this list as final without review.
+
+Store:
+taxonomy_version
+category_id
+category_name
+definition
+inclusion_rules
+exclusion_rules
+
+======================================================================
+8. LABELING
+======================================================================
+
+Primary labels:
+SAFE
+UNSAFE
+AMBIGUOUS
+
+The seed's intended_label is NOT the final gold label.
+
+Example:
+intended_label = UNSAFE
+human_final_label = AMBIGUOUS
+
+Human annotation overrides intended labels.
+
+SAFE vs UNSAFE may later be used for primary binary classification, while
+AMBIGUOUS remains available for separate analysis.
+
+======================================================================
+9. LANGUAGE / SCRIPT METADATA
+======================================================================
+
+Every generated item must store:
+
+language
+secondary_language
+script
+is_transliterated
+language_confidence
+script_confidence
+
+Support native and Romanized forms where resources permit.
+
+Never infer metadata solely from filenames.
+
+Validate the actual text against the intended language/script condition.
+
+======================================================================
+10. CODE-MIXING ENGINE
+======================================================================
+
+Treat code mixing as an experimental variable.
+
+Initial levels:
+LEVEL_0 = monolingual
+LEVEL_1 = low
+LEVEL_2 = medium
+LEVEL_3 = high
+
+Use a reproducible token-level or word-level metric.
+
+Store:
+code_mix_level
+code_mix_ratio
+mixing_method
+primary_language
+secondary_language
+
+Support controlled:
+- word replacement
+- phrase replacement
+- language switching
+- configurable target ratio
+
+The output must remain linguistically plausible; do not create artificial
+word salad.
+
+Ratio is a measurable property, not a complete naturalness measure.
+Human review remains necessary.
+
+======================================================================
+11. TRANSFORMATION ENGINE
+======================================================================
+
+Supported transformation types:
+- translation
+- paraphrase
+- transliteration
+- script conversion
+- code mixing
+- optional informal/noisy spelling
+- optional controlled regional variation
+
+Each transformation creates a record containing:
+transformation_id
+parent_prompt_id
+transformation_type
+parameters
+generator_model
+timestamp
+status
+
+Never destroy the parent.
+
+======================================================================
+12. LLM GENERATION LAYER
+======================================================================
+
+An LLM may be used as a transformation/generation tool for:
+- translation
+- paraphrasing
+- code-mixing
+- controlled linguistic variation
+
+It is NOT the ground-truth labeler.
+
+Build a model-agnostic provider interface:
+
+generate(prompt, system_instruction, model_config)
+→ text + metadata
+
+Support API or local models through adapters.
+
+Requirements:
+- environment variables / .env
+- no hard-coded keys
+- retries
+- exponential backoff
+- rate-limit handling
+- timeout
+- structured logs
+- per-record persistence
+- resumable jobs
+- failed-job queue
+- generation metadata
+
+If 37/1000 records succeed and the job stops, rerunning must continue from the
+remaining records without destroying successful results.
+
+======================================================================
+13. QUALITY CONTROL
+======================================================================
+
+Every generated item passes through:
+
+1. schema validation
+2. language validation
+3. script validation
+4. code-mix validation
+5. exact duplicate detection
+6. near-duplicate detection
+7. semantic preservation
+8. safety-intent consistency
+9. formatting validation
+10. quality scoring
+11. human review
+
+Each check must produce a machine-readable result.
+
+Example:
+qc_language = PASS
+qc_script = PASS
+qc_duplicate = PASS
+qc_semantic = 0.91
+qc_code_mix = PASS
+qc_format = PASS
+qc_overall = REVIEW
+
+Do not silently delete failures.
+
+Store:
+rejection_reason
+qc_status
+qc_scores
+
+======================================================================
+14. DUPLICATE / NEAR-DUPLICATE
+======================================================================
+
+Implement:
+A. exact normalized-string duplicate detection
+B. near-duplicate detection
+C. embedding similarity where practical
+
+Thresholds must be configurable.
+
+Do not reject intentionally different language/script/code-mix variants simply
+because their semantic similarity is high. They may be valid paired conditions.
+
+Use similarity intelligently:
+- accidental duplicate across unrelated seeds → reject/review
+- same seed + controlled transformation → allowed
+
+======================================================================
+15. SEMANTIC PRESERVATION
+======================================================================
+
+A transformation must retain the seed's intended meaning.
+
+Implement semantic similarity using an appropriate embedding/model method.
+Borderline cases go to human review.
+
+Store:
+semantic_similarity_score
+semantic_check_status
+
+Do not claim that embedding similarity proves exact equivalence.
+
+======================================================================
+16. SAFETY-INTENT CONSISTENCY
+======================================================================
+
+A transformation should preserve the intended safety meaning unless the
+transformation explicitly changes it.
+
+If a generated variant changes the meaning:
+- flag it
+- send to review
+- never silently retain the original label
+
+Store:
+intended_label
+label_consistency_status
+human_final_label
+
+======================================================================
+17. HUMAN REVIEW / ANNOTATION
+======================================================================
+
+Build a review interface.
+
+Show:
+- seed
+- original prompt
+- generated variant
+- language
+- script
+- code-mix level
+- transformation
+- intended label
+- QC results
+
+Annotator selects:
+SAFE / UNSAFE / AMBIGUOUS
+
+Also:
+confidence = LOW / MEDIUM / HIGH
+category
+optional reason
+
+Store:
+annotator_id
+label
+confidence
+timestamp
+review_version
+
+Use multiple annotators for a subset.
+
+Calculate appropriate agreement:
+- Cohen's Kappa for exactly two raters
+- Fleiss' Kappa or another suitable multi-rater statistic when appropriate
+- agreement percentage
+
+Do not use synthetic/LLM labels as gold labels.
+
+======================================================================
+18. DATASET SCHEMA
+======================================================================
+
+Design a normalized database plus flat benchmark exports.
+
+Minimum sample-level fields:
+
+prompt_id
+seed_id
+parent_prompt_id
+prompt
+language
+secondary_language
+script
+is_transliterated
+code_mix_level
+code_mix_ratio
+
+category
+intended_label
+final_label
+
+transformation_type
+generation_method
+source_type
+source_dataset
+source_reference
+
+language_confidence
+script_confidence
+semantic_similarity_score
+quality_score
+qc_status
+rejection_reason
+
+annotation_status
+annotator_ids
+annotation_confidence
+final_consensus
+
+split
+dataset_version
+taxonomy_version
+generator_version
+generation_run_id
+generator_model
+created_at
+updated_at
+
+Add fields only when they have a clear research/engineering purpose.
+
+======================================================================
+19. PROVENANCE
+======================================================================
+
+Every example must be traceable.
+
+Example:
+seed_id = S102
+parent_prompt_id = P102
+source_dataset = NicheHazardQA
+source_reference = original Index
+language = Hindi
+script = Roman
+secondary_language = English
+code_mix_level = medium
+transformation_type = code_mix
+generator_model = <model>
+generation_run_id = RUN_004
+human_validated = true
+
+The entire lineage must be reconstructable.
+
+======================================================================
+20. DATASET VERSIONING
+======================================================================
+
+Use immutable releases.
+
+Example:
+v0.1 = pilot
+v0.2 = expanded
+v0.3 = human validated
+v1.0 = final benchmark
+
+Every version has:
+- version number
+- creation date
+- changelog
+- record count
+- language distribution
+- category distribution
+- label distribution
+- QC summary
+
+Never silently modify a released version.
+
+======================================================================
+21. TRAIN/VALIDATION/TEST
+======================================================================
+
+Split by seed or semantic family wherever possible.
+
+Do not allow:
+seed S001 → train
+variant of S001 → test
+
+unless explicitly testing cross-variant generalization.
+
+Starting split can be configurable at 70/15/15.
+
+Stratify where possible by:
+language
+category
+label
+code-mix level
+
+Keep the benchmark test set isolated from model development.
+
+======================================================================
+22. EXPORTS
+======================================================================
+
+Support:
+- JSONL
+- CSV
+- Parquet if practical
+- database
+
+Export:
+1. full provenance dataset
+2. human annotation dataset
+3. benchmark/test set
+4. ML training set
+5. QC/rejected records
+6. generation audit log
+
+Do not lose metadata during export.
+
+======================================================================
+23. GENERATOR UI — TOP PRIORITY
+======================================================================
+
+The first UI must let a researcher:
+
+1. create/import seed prompts
+2. select languages
+3. select scripts
+4. select code-mix levels
+5. select safety categories
+6. select transformations
+7. choose generation model
+8. set variants per seed
+9. preview generation plan
+10. start a generation run
+11. monitor progress
+12. inspect QC results
+13. inspect rejected records
+14. send items to human review
+15. approve/reject/edit
+16. export the dataset
+17. create a dataset version
+18. view a quality report
+
+Use Streamlit for the first prototype for speed.
+Keep the backend modular so FastAPI/React can be introduced later.
+
+======================================================================
+24. GENERATION JOB SYSTEM
+======================================================================
+
+Every run must have:
+generation_run_id
+configuration
+start_time
+end_time
+status
+model
+seed_count
+requested_variants
+successful
+failed
+rejected
+approved
+
+Provide:
+- progress
+- success/failure/rejection counts
+- resume
+- retry
+- logs
+
+======================================================================
+25. DATABASE
+======================================================================
+
+SQLite is acceptable for MVP.
+PostgreSQL is preferred for a larger deployment.
+
+Recommended entities:
+- seeds
+- prompts/generated_variants
+- transformations
+- languages
+- taxonomy_categories
+- generation_runs
+- qc_results
+- annotations
+- dataset_versions
+- dataset_members
+- benchmark_runs
+- model_results
+
+Use foreign keys.
+Do not put the entire system into one giant JSON document.
+
+Provide an ER diagram or Mermaid ER diagram.
+
+======================================================================
+26. TECH STACK
+======================================================================
+
+MVP:
+Python
+Streamlit
+SQLite
+Pandas
+JSON/JSONL
+Sentence Transformers
+Hugging Face Transformers
+scikit-learn
+Git
+
+Later:
+FastAPI
+PostgreSQL
+React + Tailwind
+PyTorch
+MLflow/W&B
+Docker
+
+Do not introduce unnecessary infrastructure before the MVP works.
+
+======================================================================
+27. QUALITY REPORT
+======================================================================
+
+The generator must automatically produce:
+
+- record count
+- accepted/rejected count
+- rejection reasons
+- duplicate rate
+- near-duplicate rate
+- semantic-drift rate
+- language-validity rate
+- script-validity rate
+- code-mix-validity rate
+- human acceptance rate
+- annotation agreement
+- label distribution
+- language distribution
+- script distribution
+- category distribution
+- code-mix distribution
+- transformation distribution
+
+This report is a required generator deliverable.
+
+======================================================================
+28. DATASET CARD
+======================================================================
+
+Generate a dataset-card template containing:
+- motivation
+- scope
+- languages
+- scripts
+- categories
+- sources
+- generation methods
+- annotation
+- QC
+- limitations
+- ethical considerations
+- licensing/provenance
+- version
+
+======================================================================
+29. SECONDARY FACTUALITY / HALLUCINATION TRACK
+======================================================================
+
+Only after the safety generator is stable.
+
+Use reference-backed questions, especially from dataset_10k where appropriate.
+
+Store:
+reference_answer
+response
+factuality_label
+evidence
+factuality_confidence
+
+Labels:
+CORRECT
+PARTIAL
+INCORRECT
+UNCERTAIN
+N/A
+
+Keep factuality separate from safety.
+
+======================================================================
+30. LATER BENCHMARK / CLASSIFIER
+======================================================================
+
+After the generator and human validation are stable:
+
+Benchmark selected existing safety/moderation systems using the same held-out set.
+
+Metrics:
+Precision
+Recall
+F1
+ROC-AUC where meaningful
+False-positive rate
+False-negative rate
+Confusion matrix
+
+Report by:
+language
+script
+transliteration
+code-mix level
+category
+transformation
+
+Later compare lightweight multilingual encoders such as:
+MuRIL
+IndicBERT
+mBERT
+XLM-R
+or another justified candidate.
+
+Do not assume MuRIL is superior before experimentation.
+
+======================================================================
+31. ABLATIONS / FAILURE ANALYSIS
+======================================================================
+
+Later experiments may include:
+- multilingual without code mixing
+- multilingual + code mixing
+- without transliteration
+- with transliteration
+- automatic-only vs human-filtered
+- balanced vs unbalanced
+- different mixing levels
+
+Analyze failures by:
+language
+script
+code_mix_level
+category
+transformation
+semantic/linguistic pattern
+
+The objective is to explain why errors occur, not merely count them.
+
+======================================================================
+32. TESTING
+======================================================================
+
+Write tests for:
+- seed import
+- schema validation
+- language configuration
+- script configuration
+- transformation selection
+- code-mix ratio
+- provenance
+- duplicate detection
+- semantic threshold logic
+- QC pipeline
+- annotation storage
+- dataset versioning
+- exports
+- resume/retry
+- seed-level split integrity
+
+Use a deterministic mini test dataset.
+
+Test failure paths, not only successful paths.
+
+======================================================================
+33. REPRODUCIBILITY / SECURITY
+======================================================================
+
+Record:
+- random seed
+- model/version
+- generation parameters
+- transformation configuration
+- taxonomy version
+- dataset version
+- code commit if available
+- timestamp
+- dependency/environment versions
+
+Never hard-code API keys.
+Use .env and .env.example.
+Never commit secrets.
+Validate file paths and inputs.
+Do not leak secrets into logs.
+
+======================================================================
+34. PROJECT STRUCTURE
+======================================================================
+
+IndicSafe/
+├── app/
+│   ├── streamlit_app.py
+│   ├── pages/
+│   └── components/
+├── backend/
+│   ├── config.py
+│   ├── database.py
+│   └── services/
+├── generator/
+│   ├── seed_manager.py
+│   ├── transformation_engine.py
+│   ├── translation.py
+│   ├── transliteration.py
+│   ├── code_mixing.py
+│   ├── validators.py
+│   ├── semantic_checker.py
+│   ├── duplicate_detector.py
+│   ├── quality_controller.py
+│   ├── provenance.py
+│   ├── job_manager.py
+│   └── exporters.py
+├── annotation/
+│   ├── annotation_service.py
+│   └── guidelines.md
+├── database/
+│   ├── models.py
+│   ├── schema.sql
+│   └── migrations/
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   ├── pilot/
+│   └── exports/
+├── configs/
+│   ├── languages.yaml
+│   ├── taxonomy.yaml
+│   └── generation.yaml
+├── tests/
+├── notebooks/
+├── evaluation/
+├── models/
+├── docs/
+├── scripts/
+├── .env.example
+├── .gitignore
+├── README.md
+└── requirements.txt
+
+Do not create dozens of empty files just to match the tree.
+Implement incrementally.
+
+======================================================================
+35. DEVELOPMENT PHASES
+======================================================================
+
+PHASE 0 — RESEARCH/DESIGN
+- inspect all source datasets
+- choose MVP languages
+- define taxonomy
+- define schema
+- define code-mix metric
+- define transformation rules
+- define QC thresholds
+- define annotation policy
+
+PHASE 1 — GENERATOR CORE
+- seed manager
+- configs
+- provenance
+- basic transformation pipeline
+- exports
+
+PHASE 2 — LANGUAGE LAYER
+- translation
+- transliteration
+- script validation
+- language validation
+
+PHASE 3 — CODE MIXING
+- controlled mixing
+- ratios
+- levels
+- naturalness review
+
+PHASE 4 — QUALITY CONTROL
+- exact duplicate
+- near duplicate
+- semantic preservation
+- label consistency
+- formatting
+- quality score
+
+PHASE 5 — GENERATION JOBS
+- provider adapters
+- retries
+- resume
+- logging
+- run tracking
+
+PHASE 6 — HUMAN REVIEW
+- Streamlit review UI
+- annotations
+- consensus
+- agreement
+
+PHASE 7 — DATASET RELEASE
+- versioning
+- exports
+- quality report
+- dataset card
+
+PHASE 8 — BENCHMARK
+- existing safety systems
+
+PHASE 9 — CLASSIFIER
+- baselines
+- lightweight multilingual model
+
+PHASE 10 — ANALYSIS
+- ablation
+- failure analysis
+- cross-language evaluation
+- optional factuality track
+
+======================================================================
+36. GENERATOR MVP SUCCESS CONDITION
+======================================================================
+
+The generator MVP is complete only when this works end-to-end:
+
+10–30 controlled seeds
+→ select 2–3 languages
+→ native-script variants
+→ Romanized variants where feasible
+→ 2 code-mix levels
+→ language/script validation
+→ code-mix measurement
+→ exact + semantic duplicate checks
+→ semantic-preservation check
+→ safety-intent consistency check
+→ quality score
+→ human review
+→ approve/reject
+→ provenance
+→ dataset version
+→ JSONL/CSV export
+→ quality report
+
+If this works reliably, scale it.
+
+======================================================================
+37. CLAUDE OPERATING RULES
+======================================================================
+
+Do NOT immediately dump the entire application.
+
+Before coding:
+1. inspect the repository
+2. inspect the source files
+3. summarize what exists
+4. identify missing pieces
+5. propose the current phase
+6. implement only that phase
+7. run tests
+8. show exact files changed
+9. provide exact run commands
+10. stop before the next major phase unless explicitly asked to continue
+
+If autonomous implementation is requested, proceed phase-by-phase but validate each
+phase before building on it.
+
+When ambiguous:
+- choose the smallest reversible implementation
+- state the assumption
+- do not invent research facts
+
+Never fabricate:
+- dataset records
+- annotations
+- benchmark results
+- scientific conclusions
+- citations
+
+======================================================================
+38. FIRST TASK — DO THIS NOW
+======================================================================
+
+Before implementing the generator:
+
+A. inspect the repository
+B. inspect the 15 source datasets
+C. produce:
+   1. recommended MVP language configuration
+   2. proposed taxonomy structure
+   3. final proposed schema
+   4. code-mix measurement definition
+   5. transformation configuration
+   6. QC rules and configurable thresholds
+   7. database/ER structure
+   8. implementation plan
+   9. minimal dependencies
+
+Then implement ONLY:
+- Seed Manager
+- configuration files
+- provenance fields
+- seed import/validation
+- 30-record pilot seed export
+- tests
+
+Do not implement the complete UI, benchmark engine, or classifier yet.
+
+After this is verified, proceed to translation/transliteration.
+
+======================================================================
+39. FINAL SUCCESS CRITERIA
+======================================================================
+
+The generator is successful when we can answer for every dataset record:
+
+1. Where did this prompt come from?
+2. What was the original intent?
+3. What transformation produced it?
+4. What language is it?
+5. What script is it?
+6. Is it transliterated?
+7. What is the code-mix level/ratio?
+8. Did its meaning remain consistent?
+9. Was it an accidental duplicate?
+10. Did it pass QC?
+11. Who validated it?
+12. Which dataset version contains it?
+13. Can the generation process be reproduced?
+
+The objective is controlled, traceable, high-quality data — NOT maximum prompt count.
+
+START WITH PHASE 0 AND THE FIRST TASK.
