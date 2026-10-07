@@ -1,0 +1,88 @@
+# Generation / seed / QC configuration — IndicSafe
+# ---------------------------------------------------------------------------
+# Phase 0/1 uses: generator_version, random_seed, seed_validation, pilot.
+# The `qc` and `transformations` blocks are the Phase 0 design; nothing reads
+# them yet. They live here so later phases change configuration, not code.
+# Every threshold is an initial value to calibrate on the pilot.
+
+generator_version: "0.1.0"
+random_seed: 42
+
+seed_validation:
+  min_chars: 10
+  max_chars: 1000
+  min_script_confidence: 0.90      # share of letters in the declared script
+  reject_replacement_char: true    # U+FFFD means the text was already damaged
+  # Byte sequences typical of UTF-8 text decoded as cp1252/latin-1 (seen in MLI).
+  mojibake_markers: ["Ã", "â€", "Ã°Å"]
+
+pilot:
+  dataset_version: "v0.1-pilot-seeds"
+  target_size: 30
+  # Per-source quotas (must sum to target_size). Within each source, seeds are
+  # spread evenly across source categories.
+  quotas:
+    nichehazardqa: 12
+    data_for_hub: 8
+    dataset_10k: 10
+  # Template-diversity guard: skip a candidate whose word-set Jaccard similarity
+  # to an already selected seed is >= this value (NicheHazardQA is heavily
+  # templated, e.g. "How can I use <X> to promote ...").
+  max_word_jaccard: 0.5
+
+# ---------------- Design only (not implemented yet) -----------------------
+transformations:
+  enabled:
+    - translation            # en -> hi / mr / gu, native script
+    - transliteration        # Deva / Gujr -> Latn (romanized)
+    - code_mixing            # hi-en / mr-en / gu-en, levels L1, L2
+    - paraphrase             # optional, en only for MVP
+  disabled:
+    - noisy_spelling
+    - regional_variation
+
+# Translation sits behind a provider interface (team decision, 2026-10-08).
+# Default = local open-source MT; no LLM API is hard-coded. Swapping providers
+# must not require changes to transformation, QC or database code.
+translation:
+  default_provider: indictrans2       # first candidate; confirmed only after the pilot evaluation
+  providers:
+    indictrans2:
+      type: local_mt
+      enabled: true
+      target_languages: [hi, mr, gu]
+    llm:
+      type: llm_api                   # optional adapter; reads its settings from .env
+      enabled: false
+  selection: >-
+    Phase 2 runs a small pilot, evaluates translation quality (native-speaker
+    review of a sample per language), and only then fixes the production model.
+
+qc:
+  language:
+    pass_confidence: 0.80
+    review_confidence: 0.50
+  script:
+    native_min_share: 0.85        # native-script letters / all letters, native condition
+    romanized_min_share: 0.95     # Latn letters / all letters, romanized condition
+  code_mix:
+    tolerance: 0.03               # allowed distance outside the level band before FAIL
+  duplicate:
+    near_dup_char3_jaccard: 0.85  # lexical near-duplicate
+    near_dup_embedding_cosine: 0.95
+  semantic:
+    pass: 0.80
+    review: 0.65                  # below -> FAIL (semantic_drift)
+  quality_score:
+    weights:
+      semantic: 0.30
+      language: 0.20
+      script: 0.15
+      code_mix_fit: 0.15
+      format: 0.10
+      novelty: 0.10
+    accept_min: 0.75
+    review_min: 0.55
+  human_review:
+    pilot_review_fraction: 1.0    # every pilot item is reviewed
+    pass_sample_fraction: 0.20    # later: share of auto-PASS items sampled for review

@@ -1,0 +1,112 @@
+{
+  "run_id": "IMPORT_20261007T184801Z_8321e599",
+  "run_type": "pilot_seed_export",
+  "started_at": "2026-10-07T18:48:01Z",
+  "finished_at": "2026-10-07T18:48:02Z",
+  "generator_version": "0.1.0",
+  "taxonomy_version": "1.0",
+  "taxonomy_status": "frozen",
+  "languages_version": "0.1",
+  "sources_version": "0.1",
+  "random_seed": 42,
+  "config_sha256": {
+    "sources.yaml": "ba572308e4bb0a275dc578d5bfec28f25dc70f557044b336bdeff0216e2340cf",
+    "languages.yaml": "bd2a30fe2c61c44eb94a04e119afc025e8fdc83faea70ba7bc420c5315300403",
+    "taxonomy.yaml": "46b23d31872abadc0a8677d8249106593fb75e4b03db371ebad54eeb99b54503",
+    "generation.yaml": "778c4d7d44e72f5a6eae618e567db5d08f61e80d4c62226264317bbcc1715272"
+  },
+  "source_files": {
+    "nichehazardqa": {
+      "archive": "NicheHazardQA.zip",
+      "member": "NicheHazardQA.json",
+      "sha256": "a59c466f4305ab90bf33f8c3f0a2c67e8786c9f0b0d09cca2fc499c4df5b710d"
+    },
+    "data_for_hub": {
+      "archive": "data_for_hub.zip",
+      "member": "data_for_hub.json",
+      "sha256": "c8ae6302e53f1acf6582ffccc747caac5b2fc8eeec7e91b178ba4570ddc3a8a5"
+    },
+    "dataset_10k": {
+      "archive": "dataset_10k(1).zip",
+      "member": "dataset_10k(1).jsonl",
+      "sha256": "246fe631ad7b2a8f989d3ef7c44af2e4642c95c744e01f9f9ab6b4880cb7e9ba"
+    }
+  },
+  "git": {
+    "commit": "a01ab414f043e3aa78453272fdfb8bb4e9541015",
+    "dirty": true
+  },
+  "environment": {
+    "python": "3.13.7",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "packages": {
+      "pydantic": "2.13.5",
+      "PyYAML": "6.0.3",
+      "pytest": "8.4.2"
+    }
+  },
+  "dataset_version": "v0.1-pilot-seeds",
+  "record_count": 30,
+  "selection": {
+    "method": "per-source quota; round-robin over source categories; order = sha256(random_seed:seed_id); word-Jaccard diversity guard",
+    "quotas": {
+      "nichehazardqa": 12,
+      "data_for_hub": 8,
+      "dataset_10k": 10
+    },
+    "max_word_jaccard": 0.5
+  },
+  "selection_fingerprint": "45441aea0b984912dd3c7f979876f635472ef6cf05ac69b5dcdf3bbf50bbcfb1",
+  "distributions": {
+    "source_dataset": {
+      "data_for_hub": 8,
+      "dataset_10k": 10,
+      "nichehazardqa": 12
+    },
+    "source_category": {
+      "Advanced Technology to Create Weapons": 2,
+      "Business and Economics": 1,
+      "Conspiracy Theories and Paranoia": 2,
+      "Control the Thoughts and Emotions of Learners": 2,
+      "Cruelty and Violence": 2,
+      "Education and Pedagogy": 1,
+      "Fake News and Propaganda": 2,
+      "Geography and Environmental Studies": 1,
+      "Hate Speech and Discrimination": 2,
+      "Health and Medicine": 1,
+      "History and Culture": 1,
+      "Literature and Language": 1,
+      "Mathematics and Logic": 1,
+      "Philosophy and Ethics": 1,
+      "factual_questions": 5,
+      "indian_questions": 5
+    },
+    "category": {
+      "benign_educational": 10,
+      "dangerous_instructions": 2,
+      "deception_manipulation": 6,
+      "hate_discrimination": 2,
+      "unassigned": 8,
+      "violence": 2
+    },
+    "category_status": {
+      "source_mapped": 22,
+      "unassigned": 8
+    },
+    "intended_label": {
+      "SAFE": 10,
+      "UNSAFE": 20
+    },
+    "language": {
+      "en": 30
+    },
+    "script": {
+      "Latn": 30
+    }
+  },
+  "label_note": "intended_label is provisional and source-derived; final_label is empty until human annotation.",
+  "outputs": {
+    "pilot_seeds_v0.1-pilot-seeds.jsonl": "2d43e03c042770d34d5ac61cd7372e987d6c61198bacd65aa625875ec22b5cd5",
+    "pilot_seeds_v0.1-pilot-seeds.csv": "62f055df90172fad08cf5dfc8e39aff2028de4003f4dcab52507022df0b1c86d"
+  }
+}

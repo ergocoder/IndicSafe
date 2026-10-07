@@ -1,0 +1,210 @@
+# Source registry — IndicSafe
+# ---------------------------------------------------------------------------
+# Every raw file is registered here with its role, format, field mapping and
+# SHA-256 checksum. Raw files are read-only: they are read in place from their
+# zip archives and never extracted into or written back to data/raw/.
+#
+# If a checksum no longer matches, the import stops (see provenance.py) so a
+# silently changed raw file cannot leak into the seed pool.
+#
+# `role` values:
+#   safety_seed                  -> may supply seed prompts with a provisional
+#                                   intended_label (NOT a gold label)
+#   benign_control               -> may supply benign seed prompts
+#   language_validation_support  -> used later to build/evaluate language and
+#                                   code-mix validators; never seeds, never labels
+#   translation_support          -> used later as translation reference material
+#   linguistic_support           -> optional analysis only; never safety labels
+#
+# `license`: the team confirmed on 2026-10-08 that all 15 files are open source
+# and free to use publicly (OPEN_TEAM_CONFIRMED). The exact licence name and
+# required citation of each source still go into the dataset card (Phase 7).
+
+sources_version: "0.1"
+raw_dir: data/raw
+
+sources:
+  nichehazardqa:
+    display_name: NicheHazardQA
+    archive: NicheHazardQA.zip
+    member: NicheHazardQA.json
+    sha256: a59c466f4305ab90bf33f8c3f0a2c67e8786c9f0b0d09cca2fc499c4df5b710d
+    format: jsonl                      # file extension says .json, content is JSON Lines
+    role: safety_seed
+    seed_eligible: true
+    id_prefix: NHQA
+    reference_field: Index
+    text_field: Question
+    source_category_field: Domain
+    metadata_fields: []
+    ignored_fields: []
+    filters: {}
+    source_language: en
+    default_intended_label: UNSAFE
+    intended_label_basis: >-
+      Provisional, source-derived: the source is a collection of hazard-oriented
+      questions grouped into harm domains. Some items are arguably benign or
+      ambiguous (e.g. ethics questions); human review decides the final label.
+    license: OPEN_TEAM_CONFIRMED
+
+  data_for_hub:
+    display_name: data_for_hub
+    archive: data_for_hub.zip
+    member: data_for_hub.json
+    sha256: c8ae6302e53f1acf6582ffccc747caac5b2fc8eeec7e91b178ba4570ddc3a8a5
+    format: json_array
+    role: safety_seed
+    seed_eligible: true
+    id_prefix: DFH
+    reference_field: id
+    text_field: question
+    source_category_field: topic       # academic subject area, NOT a harm category
+    metadata_fields: [subtopic]
+    # Multi-turn conversations contain model-generated responses (some of them
+    # harmful). They are deliberately NOT imported into seeds.
+    ignored_fields: [blue_conversations, red_conversations]
+    filters: {}
+    source_language: en
+    default_intended_label: UNSAFE
+    intended_label_basis: >-
+      Provisional, source-derived: questions are paired with red-team
+      conversations in the source. Some items are arguably benign or ambiguous
+      (e.g. questions about dehydration limits); human review decides the final label.
+    license: OPEN_TEAM_CONFIRMED
+
+  dataset_10k:
+    display_name: dataset_10k
+    archive: dataset_10k(1).zip
+    member: dataset_10k(1).jsonl
+    sha256: 246fe631ad7b2a8f989d3ef7c44af2e4642c95c744e01f9f9ab6b4880cb7e9ba
+    format: jsonl
+    role: benign_control
+    seed_eligible: true
+    id_prefix: D10K
+    reference_field: unique_id
+    text_field: question
+    source_category_field: category
+    metadata_fields: [question_id, domain, expected, language]
+    ignored_fields: []
+    # English rows only become seeds. The Hindi/Marathi/Gujarati/Odia rows are
+    # parallel versions (same category + question_id) and are kept as candidate
+    # reference translations for Phase 2 — their translation provenance
+    # (human vs machine) is unknown.
+    filters:
+      language: [English]
+      category: [factual_questions, indian_questions]
+    source_language: en
+    default_intended_label: SAFE
+    intended_label_basis: >-
+      Provisional, source-derived: factual QA questions from a multilingual QA
+      set, used as benign controls. Human review decides the final label.
+    license: OPEN_TEAM_CONFIRMED
+
+  lid_train:
+    display_name: LID_train
+    archive: LID_train.zip
+    member: LID_train.txt
+    sha256: be4626df05e21484d64e46ee6b7a0a2171abde65ea3bb2ec126cd2939d342239
+    format: csv
+    role: language_validation_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  lid_test:
+    display_name: LID_test
+    archive: LID_test(1).zip
+    member: LID_test(1).csv
+    sha256: 1ac336bc94d9208bd1cdc9a8c91756d53a53352344aaf5337e9cb1f6b65bf713
+    format: csv
+    role: language_validation_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  mli_train:
+    display_name: MLI_train
+    archive: MLI_train.zip
+    member: MLI_train.csv
+    sha256: 1c0255a8e1fc94f02a5ac17609452f7d7489467a8154108ff1d56f688de482fb
+    format: csv
+    role: language_validation_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  mli_test:
+    display_name: MLI_test
+    archive: MLI_test.zip
+    member: MLI_test.csv
+    sha256: 5677285ab27a75759cb3285d678b3b47c8d751f15b98a477a71934a8908c52a2
+    format: csv
+    role: language_validation_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  mt_train:
+    display_name: MT_train
+    archive: MT_train.zip
+    member: MT_train.csv
+    sha256: 1819f6ea76bd610faee8f076744a5cf7dca4f0c2a0ea8766ab44ed20a7a6e21f
+    format: csv
+    role: translation_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  mt_test:
+    display_name: MT_test
+    archive: MT_test.zip
+    member: MT_test.csv
+    sha256: 2907a6ee155374fb2543930ee732f714bfdb6b826776139b5624ec228794cae6
+    format: csv
+    role: translation_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  ner_train:
+    display_name: NER_train
+    archive: NER_train.zip
+    member: NER_train.csv
+    sha256: c4acabe9e0bf2c5682214afb66e9a67824db3cf10025e11ee4e1415235f1e52e
+    format: csv
+    role: linguistic_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  ner_test:
+    display_name: NER_test
+    archive: NER_test.zip
+    member: NER_test.csv
+    sha256: 96bf9e6c68a3a5ad03dc62b3637f196b8d00c27c97d9e5dc924f3351cda3e0dd
+    format: csv
+    role: linguistic_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  pos_train:
+    display_name: POS_train
+    archive: POS_train.zip
+    member: POS_train.csv
+    sha256: 266e58b28cdfbb83811003588fcfa4056270bd896770c5289802e25a6b7cc8b7
+    format: csv
+    role: linguistic_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  pos_test:
+    display_name: POS_test
+    archive: POS_test.zip
+    member: POS_test.csv
+    sha256: 8a7fb309c81f8589fd5ba104c466b10f9febb4254dbef13255458fd0ca2f3378
+    format: csv
+    role: linguistic_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  tn_train:
+    display_name: TN_train
+    archive: TN_train.zip
+    member: TN_train.csv
+    sha256: 478df84f325717d43f0450f428c0e1b7d7ab75dfa8dbda3d0556ee37d4da75be
+    format: csv
+    role: linguistic_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED
+  tn_test:
+    display_name: TN_test
+    archive: TN_test.zip
+    member: TN_test.csv
+    sha256: cb48e19dc8f1f29aa024d00b50205474c1a4fc73809c588d25d00e554590018b
+    format: csv
+    role: linguistic_support
+    seed_eligible: false
+    license: OPEN_TEAM_CONFIRMED

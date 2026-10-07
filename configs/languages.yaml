@@ -1,0 +1,82 @@
+# Language / script / code-mix configuration — IndicSafe
+# ---------------------------------------------------------------------------
+# Adding a language = adding an entry here (plus its script if new).
+# No language list is hard-coded in Python.
+#
+# Codes: ISO 639-1 for languages, ISO 15924 for scripts.
+# `enabled: false` keeps a language configured but out of MVP generation.
+
+languages_version: "0.1"
+
+languages:
+  en:
+    name: English
+    role: reference              # seed/reference condition
+    native_script: Latn
+    romanized_script: null
+    enabled: true
+
+  hi:
+    name: Hindi
+    role: target
+    native_script: Deva
+    romanized_script: Latn
+    enabled: true
+    code_mix_partner: en         # Hinglish
+    code_mix_levels: [L0, L1, L2]
+    notes: >-
+      Early priority (Hinglish). All six Hindi-English support files
+      (LID/MLI/MT/NER/POS/TN) apply to this language.
+
+  mr:
+    name: Marathi
+    role: target
+    native_script: Deva
+    romanized_script: Latn
+    enabled: true
+    code_mix_partner: en
+    code_mix_levels: [L0, L1, L2]
+    notes: >-
+      Shares Devanagari with Hindi, so script checks cannot tell hi from mr;
+      a lexical language check is required. No Marathi-English code-mix
+      support data exists in data/raw/.
+
+  gu:
+    name: Gujarati
+    role: target
+    native_script: Gujr
+    romanized_script: Latn
+    enabled: true                # MVP language (team decision, 2026-10-08)
+    code_mix_partner: en
+    code_mix_levels: [L0, L1, L2]
+    notes: >-
+      Distinct script, so the script check separates it from hi/mr. Parallel
+      factual QA exists in dataset_10k. No Gujarati-English code-mix or
+      romanisation support data exists in data/raw/: code-mix measurement and
+      romanised style rely on team-provided references and human review.
+
+# Unicode ranges used by the script detector (inclusive, hex code points).
+scripts:
+  Latn:
+    name: Latin
+    ranges: [[0x0041, 0x005A], [0x0061, 0x007A], [0x00C0, 0x024F]]
+  Deva:
+    name: Devanagari
+    ranges: [[0x0900, 0x097F], [0xA8E0, 0xA8FF]]
+  Gujr:
+    name: Gujarati
+    ranges: [[0x0A80, 0x0AFF]]
+  Orya:
+    name: Odia
+    ranges: [[0x0B00, 0x0B7F]]
+
+# Code-mix levels over code_mix_ratio = secondary-language tokens /
+# (primary + secondary language tokens). Language-independent tokens
+# (numbers, punctuation, emoji, URLs, named entities) are excluded.
+# Bands are initial design choices to be calibrated on the pilot — they are
+# not taken from the literature.
+code_mix_levels:
+  L0: {name: monolingual, min_ratio: 0.00, max_ratio: 0.05}
+  L1: {name: low,         min_ratio: 0.05, max_ratio: 0.20}
+  L2: {name: medium,      min_ratio: 0.20, max_ratio: 0.35}
+  L3: {name: high,        min_ratio: 0.35, max_ratio: 0.50}

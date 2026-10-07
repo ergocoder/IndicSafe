@@ -15,3 +15,7 @@ __pycache__/
 
 # IDE
 .vscode/
+# Derived data (rebuilt by scripts/import_seeds.py from data/raw + configs).
+# data/pilot/ is committed on purpose so the pilot is inspectable/reviewable.
+data/processed/
+*.tmp

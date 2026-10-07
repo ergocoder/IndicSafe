@@ -1,0 +1,6 @@
+# Phase 0/1 — seed manager, configuration, provenance, tests.
+# Later phases add sentence-transformers, transformers, streamlit, scikit-learn
+# when the code that needs them exists.
+pydantic>=2.6,<3
+PyYAML>=6.0,<7
+pytest>=8,<9
