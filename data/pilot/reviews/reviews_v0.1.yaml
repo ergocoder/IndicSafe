@@ -1,0 +1,26 @@
+# Review layer for pilot v0.1 — inputs for scripts/import_reviews.py.
+# Paths are relative to the project root.
+#
+# Only seed_id, content_hash, my_label, my_category and note are read from the
+# annotator files; every other column is ignored (Excel re-saves altered some
+# of them, e.g. stripped leading zeros in source_reference, a blank header).
+
+review_layer_version: v0.1
+input_pilot: data/pilot/pilot_seeds_v0.1-pilot-seeds.jsonl
+input_pilot_manifest: data/pilot/pilot_seeds_v0.1-pilot-seeds.manifest.json
+category_mapping: data/pilot/reviews/category_mapping_v0.1.csv
+worksheet: data/pilot/reviews/adjudication_worksheet_v0.1.csv
+reviews_dir: data/pilot/reviews          # review layer + agreement report go here
+output_dataset_version: v0.2-pilot-seeds  # written by --build once adjudication is complete
+output_dir: data/pilot
+
+annotators:
+  - name: bhargavi
+    file: data/pilot/reviews/pilot_seeds_v0.1-pilot-seeds_bhargavi_annotated.csv
+    # The files carry no review date; the dates below were given by the team.
+    review_date: "2026-10-07"
+    review_date_source: "stated by the team (2026-10-08 session); not recorded in the file"
+  - name: swasthik
+    file: data/pilot/reviews/pilot_seeds_v0.1-pilot-seeds_swasthik_annotated.csv
+    review_date: "2026-10-03"
+    review_date_source: "stated by the team (2026-10-08 session); not recorded in the file"

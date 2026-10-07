@@ -1,6 +1,6 @@
 # IndicSafe — Session State
 
-Last updated: 2026-10-08 · Build-guide Phase 2 (Transformation Engine) implemented, **not committed**, awaiting review · next: guide Phase 3 (Language/script layer)
+Last updated: 2026-10-08 · Phase 2 committed (1723fea). Pilot review layer (v0.1 double annotation) implemented, **not committed**, awaiting review · adjudication pending on the team side · next: Phase 2b
 
 ## Objective
 
@@ -45,6 +45,27 @@ Build a reproducible, provenance-rich dataset generator for an Indian multilingu
 - **Providers** are built from config via `register_provider` / `build_provider`. **No real adapter is implemented:** `indictrans2` (configured default) raises `ProviderUnavailableError` until its adapter exists; LLM adapters are disabled; transliteration has no default provider yet.
 - **Not built (by instruction):** LLM generation, code-mixing engine, language ID, semantic/label-consistency QC, batch jobs, CLI script, SQLite.
 - **Tests:** 140 pass (54 new). Mutation checks confirmed the tests catch removed hooks, a constant derived seed, and dropping the parent content hash from ids.
+
+## Implemented (pilot review layer, before Phase 2b)
+
+- **Inputs** (`data/pilot/reviews/`): the two annotator CSVs (bhargavi, swasthik), the team's `adjudication_worksheet_v0.1.csv` + `adjudication_rules_draft.md` (not created by Claude), and the new `reviews_v0.1.yaml` (paths, annotators, review dates) and `category_mapping_v0.1.csv`.
+- **Module** `generator/review_import.py`, CLI `scripts/import_reviews.py`.
+  - Reads only `seed_id`, `content_hash`, `my_label`, `my_category`, `note`. All other columns are ignored (bhargavi's Excel-stripped `source_reference`, swasthik's blank `import_run_id` header).
+  - Matches on seed_id, requires every pilot seed exactly once, and stops on any content_hash mismatch. Also checks the v0.1 JSONL against its manifest checksum.
+  - **Category mapping:** an exact taxonomy `category_id` passes through. Anything else must be in `category_mapping_v0.1.csv` (keys compared case-insensitively with whitespace collapsed; types `display_name` / `typo` / `multiple`). Blank → `BLANK_CATEGORY`, not in the table → `UNMAPPED_CATEGORY`, multi-category cell → `MULTIPLE_CATEGORIES`. All three stay unresolved (category_id null) and send the seed to adjudication. Typos are mapped but flagged `TYPO_MAPPED`.
+  - Raw label/category/note, annotator, review date (given by the team: swasthik 2026-10-03, bhargavi 2026-10-07; not in the files), source file and sha256 are kept per annotation.
+- **Outputs:** `review_layer_v0.1.jsonl` (one record per seed) and `review_report_v0.1.json` (agreement, flagged cells, every distinct raw category value and how it was resolved, worksheet check, input checksums).
+- **Results on the real files:**
+  - Label: 23/30 = 76.67 %, Cohen's κ = 0.584. Category (27 seeds where both cells resolved): 25/27, κ = 0.903.
+  - Flags: S-NHQA-250 swasthik multiple categories; S-NHQA-253 and S-DFH-307 bhargavi blank category; typo-mapped: S-NHQA-6 (swasthik), S-DFH-1281 (both).
+  - 8 seeds need adjudication (7 label, 1 category-only: S-DFH-307). **The worksheet matches exactly:** same 8 seeds, same `issue`, labels, categories, notes, prompts and source labels.
+- **`--build`** writes `pilot_seeds_v0.2-pilot-seeds.{jsonl,csv,manifest.json}` only when every worksheet row has `adjudicated_label` (a valid label), `adjudicated_category` (an exact category_id), `adjudicated_by` and `rationale`, and the worksheet still matches the review layer. Otherwise it exits 2 and lists what is missing. It currently refuses: all 8 rows are empty.
+  - Agreed seeds (same label and same resolved category) take the shared values (`label_status: human_agreed`). Worksheet seeds take the adjudicated values (`human_adjudicated`). `category_status: human_assigned`, and `intended_label` stays as the provisional history.
+  - Each record gets `dataset_version`, `parent_dataset_version` and a `review` block: both annotations (raw + mapped), pre-review category/label, resolution, and adjudication (by, rationale, worksheet sha256).
+  - v0.1 is only read. The build refuses to overwrite an existing v0.2 unless `--force` is given.
+  - `seed_version` is unchanged, because the prompt text did not change and variant ids depend on the content.
+- **Not done (by instruction):** no adjudications filled and no `final_label` set by Claude; no new worksheet.
+- **Tests:** 155 pass (15 new, in `tests/test_review_import.py`, run on temp copies of the real files).
 
 ## Key decisions
 
@@ -98,6 +119,7 @@ Build a reproducible, provenance-rich dataset generator for an Indian multilingu
 |---|---|---|
 | 1 | Seed Manager + provenance | **Done**; all 9 guide-§7 checks re-verified on 2026-10-08 |
 | 2 | Transformation Engine: interface, translation adapter (IndicTrans2 default, optional LLM), paraphrase and transliteration interfaces, `parent_prompt_id`/`seed_id` lineage, validation hooks | **Done, awaiting review** (interfaces only; real IndicTrans2 / transliteration adapters still to add) |
+| 2a | Pilot review layer: double-annotation import, agreement, adjudication → v0.2 | **Done, awaiting review**; team must fill the worksheet, then `--build` |
 | 2b | Real adapters: IndicTrans2 translation + chosen romanisation method; pilot translation evaluation | **Next** (or fold into Phase 3) |
 | 3 | Language/script layer | |
 | 4 | Code-mixing engine | |
@@ -113,13 +135,14 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 
 ## Exact next steps
 
-1. Review Phase 2 (`git diff`, new modules, `tests/test_transformation_engine.py`).
-2. Commit in PowerShell: `git add .; git commit -m "phase 2 transformation engine"`.
-3. Next phase, in a new chat that starts with "Read SESSION_STATE.md first.":
+1. Review the pilot review layer (`generator/review_import.py`, `data/pilot/reviews/category_mapping_v0.1.csv`, `review_report_v0.1.json`, `tests/test_review_import.py`).
+2. Commit in PowerShell: `git add .; git commit -m "pilot review layer and agreement"`.
+3. Team: approve or change `adjudication_rules_draft.md`, fill the 4 adjudication columns for the 8 worksheet rows (exact category_ids), then run `scripts\import_reviews.py --build` to produce pilot v0.2.
+4. Next phase, in a new chat that starts with "Read SESSION_STATE.md first.":
    - real IndicTrans2 adapter (adds torch/transformers deps) and a romanisation method;
    - a small pilot translation run and native-speaker review;
    - language/script layer (language ID for hi vs mr).
-4. Still open on the team side:
+5. Still open on the team side:
    - Gujarati annotators.
    - Code-mix reference sources for mr and gu, inspected in Phase 4 (code-mixing).
 
@@ -128,5 +151,6 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe scripts\import_seeds.py      # --no-pilot | --manual-csv <csv> | --force
+.\.venv\Scripts\python.exe scripts\import_reviews.py    # review layer + agreement; --build [--force] -> pilot v0.2
 .\.venv\Scripts\python.exe -m pytest
 ```

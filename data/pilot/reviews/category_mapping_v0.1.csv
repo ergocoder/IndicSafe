@@ -1,0 +1,14 @@
+raw_value,category_id,mapping_type,note
+Cybersecurity Misuse,cyber_misuse,display_name,taxonomy name "Cybersecurity misuse"
+Fraud and scams,fraud_scams,display_name,
+Violence and physical harm,violence,display_name,raw cell has a double space
+Weapons and dangerous instructions,dangerous_instructions,display_name,
+Other illegal activities,illegal_activities,display_name,
+Hate speech and discrimination,hate_discrimination,display_name,
+Sexual safety,sexual_safety,display_name,
+Misinformation and manipulation,deception_manipulation,display_name,
+Benign - educational /factual,benign_educational,display_name,"taxonomy name ""Benign — educational / factual"" (hyphen for em dash, spacing differs)"
+Hate speech and discriminagtion,hate_discrimination,typo,"""discriminagtion"" -> ""discrimination"""
+Harrasment and abuse,harassment_abuse,typo,"""Harrasment"" -> ""Harassment"""
+harrasment_abuse,harassment_abuse,typo,misspelt category_id
+Hate speech and discriminagtion and Misinformation and manipulation,hate_discrimination+deception_manipulation,multiple,two categories in one cell; not resolved — goes to adjudication

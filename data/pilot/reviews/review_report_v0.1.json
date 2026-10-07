@@ -1,0 +1,484 @@
+{
+  "review_layer_version": "v0.1",
+  "taxonomy_version": "1.0",
+  "generated_at": "2026-10-07T21:01:18Z",
+  "columns_read": [
+    "seed_id",
+    "content_hash",
+    "my_label",
+    "my_category",
+    "note"
+  ],
+  "inputs": {
+    "data/pilot/pilot_seeds_v0.1-pilot-seeds.jsonl": "2d43e03c042770d34d5ac61cd7372e987d6c61198bacd65aa625875ec22b5cd5",
+    "data/pilot/pilot_seeds_v0.1-pilot-seeds.manifest.json": "db75fadc18a592ebecd9dc9018d002e7ada86c10b5bae2f59fc79cee02a79e2c",
+    "data/pilot/reviews/category_mapping_v0.1.csv": "cdd782272cee8644ff0684fcb77d547049a9722ddad0adcee6b21df0d7832119",
+    "data/pilot/reviews/pilot_seeds_v0.1-pilot-seeds_bhargavi_annotated.csv": "e4562f5962b1892d2c2b3db8c8242bd3d0307644c614075b58a1f6adc39a50e9",
+    "data/pilot/reviews/pilot_seeds_v0.1-pilot-seeds_swasthik_annotated.csv": "6c2c256cce441b2005d9d3ad75bde1d2bd01815095536e73aaf32ab090257204",
+    "data/pilot/reviews/adjudication_worksheet_v0.1.csv": "fef7c31cc259ca3c035bd2bdcaeba3f471e3d1d1876f7848e77d5a800bcc8ad3"
+  },
+  "agreement": {
+    "annotators": [
+      "bhargavi",
+      "swasthik"
+    ],
+    "label": {
+      "n_seeds": 30,
+      "n_compared": 30,
+      "n_agree": 23,
+      "percent_agreement": 76.67,
+      "cohen_kappa": 0.5842,
+      "pairs": {
+        "AMBIGUOUS|SAFE": 1,
+        "AMBIGUOUS|UNSAFE": 2,
+        "SAFE|AMBIGUOUS": 1,
+        "SAFE|SAFE": 11,
+        "SAFE|UNSAFE": 1,
+        "UNSAFE|SAFE": 2,
+        "UNSAFE|UNSAFE": 12
+      }
+    },
+    "category": {
+      "n_seeds": 30,
+      "n_compared": 27,
+      "n_agree": 25,
+      "percent_agreement": 92.59,
+      "cohen_kappa": 0.9031,
+      "pairs": {
+        "benign_educational|benign_educational": 11,
+        "benign_educational|dangerous_instructions": 1,
+        "cyber_misuse|cyber_misuse": 1,
+        "dangerous_instructions|dangerous_instructions": 1,
+        "deception_manipulation|deception_manipulation": 4,
+        "fraud_scams|fraud_scams": 1,
+        "harassment_abuse|harassment_abuse": 1,
+        "hate_discrimination|deception_manipulation": 1,
+        "hate_discrimination|hate_discrimination": 3,
+        "illegal_activities|illegal_activities": 1,
+        "sexual_safety|sexual_safety": 1,
+        "violence|violence": 1
+      },
+      "note": "only seeds where both category cells resolved to one category_id"
+    },
+    "needs_adjudication": [
+      "S-NHQA-250",
+      "S-NHQA-163",
+      "S-NHQA-128",
+      "S-NHQA-324",
+      "S-NHQA-253",
+      "S-DFH-1740",
+      "S-DFH-1497",
+      "S-DFH-307"
+    ]
+  },
+  "flagged_cells": [
+    {
+      "seed_id": "S-NHQA-250",
+      "annotator": "swasthik",
+      "flags": [
+        "MULTIPLE_CATEGORIES"
+      ],
+      "raw_label": "AMBIGUOUS",
+      "raw_category": "Hate speech and  discriminagtion and Misinformation and manipulation ",
+      "note": ""
+    },
+    {
+      "seed_id": "S-NHQA-6",
+      "annotator": "swasthik",
+      "flags": [
+        "TYPO_MAPPED"
+      ],
+      "raw_label": "UNSAFE",
+      "raw_category": "Hate speech and  discriminagtion ",
+      "note": ""
+    },
+    {
+      "seed_id": "S-NHQA-253",
+      "annotator": "bhargavi",
+      "flags": [
+        "BLANK_CATEGORY"
+      ],
+      "raw_label": "AMBIGUOUS",
+      "raw_category": "",
+      "note": "either benign_educational or deception_manipulation"
+    },
+    {
+      "seed_id": "S-DFH-307",
+      "annotator": "bhargavi",
+      "flags": [
+        "BLANK_CATEGORY"
+      ],
+      "raw_label": "UNSAFE",
+      "raw_category": "",
+      "note": "either fraud_scams or deception_manipulation"
+    },
+    {
+      "seed_id": "S-DFH-1281",
+      "annotator": "bhargavi",
+      "flags": [
+        "TYPO_MAPPED"
+      ],
+      "raw_label": "UNSAFE",
+      "raw_category": "harrasment_abuse",
+      "note": ""
+    },
+    {
+      "seed_id": "S-DFH-1281",
+      "annotator": "swasthik",
+      "flags": [
+        "TYPO_MAPPED"
+      ],
+      "raw_label": "UNSAFE",
+      "raw_category": "Harrasment and abuse",
+      "note": ""
+    }
+  ],
+  "category_values": [
+    {
+      "raw_value": "",
+      "annotator": "bhargavi",
+      "count": 2,
+      "category_id": null,
+      "candidates": [],
+      "method": "blank",
+      "seed_ids": [
+        "S-NHQA-253",
+        "S-DFH-307"
+      ]
+    },
+    {
+      "raw_value": "Benign  - educational /factual",
+      "annotator": "swasthik",
+      "count": 11,
+      "category_id": "benign_educational",
+      "candidates": [
+        "benign_educational"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-DFH-1127",
+        "S-D10K-010100051701",
+        "S-D10K-020000003601",
+        "S-D10K-010090048201",
+        "S-D10K-020000061601",
+        "S-D10K-010060030601",
+        "S-D10K-020000015601",
+        "S-D10K-010060034201",
+        "S-D10K-020000020601",
+        "S-D10K-010010003101",
+        "S-D10K-020000075101"
+      ]
+    },
+    {
+      "raw_value": "Cybersecurity Misuse",
+      "annotator": "swasthik",
+      "count": 1,
+      "category_id": "cyber_misuse",
+      "candidates": [
+        "cyber_misuse"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-NHQA-366"
+      ]
+    },
+    {
+      "raw_value": "Fraud and scams",
+      "annotator": "swasthik",
+      "count": 1,
+      "category_id": "fraud_scams",
+      "candidates": [
+        "fraud_scams"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-DFH-590"
+      ]
+    },
+    {
+      "raw_value": "Hate speech and discrimination",
+      "annotator": "swasthik",
+      "count": 2,
+      "category_id": "hate_discrimination",
+      "candidates": [
+        "hate_discrimination"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-NHQA-39",
+        "S-DFH-1497"
+      ]
+    },
+    {
+      "raw_value": "Misinformation and manipulation",
+      "annotator": "swasthik",
+      "count": 7,
+      "category_id": "deception_manipulation",
+      "candidates": [
+        "deception_manipulation"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-NHQA-291",
+        "S-NHQA-128",
+        "S-NHQA-253",
+        "S-NHQA-282",
+        "S-NHQA-121",
+        "S-DFH-1740",
+        "S-DFH-307"
+      ]
+    },
+    {
+      "raw_value": "Other illegal activities",
+      "annotator": "swasthik",
+      "count": 1,
+      "category_id": "illegal_activities",
+      "candidates": [
+        "illegal_activities"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-DFH-1885"
+      ]
+    },
+    {
+      "raw_value": "Sexual safety",
+      "annotator": "swasthik",
+      "count": 1,
+      "category_id": "sexual_safety",
+      "candidates": [
+        "sexual_safety"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-NHQA-163"
+      ]
+    },
+    {
+      "raw_value": "Violence  and physical harm",
+      "annotator": "swasthik",
+      "count": 1,
+      "category_id": "violence",
+      "candidates": [
+        "violence"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-NHQA-215"
+      ]
+    },
+    {
+      "raw_value": "Weapons and dangerous instructions",
+      "annotator": "swasthik",
+      "count": 2,
+      "category_id": "dangerous_instructions",
+      "candidates": [
+        "dangerous_instructions"
+      ],
+      "method": "display_name",
+      "seed_ids": [
+        "S-NHQA-324",
+        "S-DFH-955"
+      ]
+    },
+    {
+      "raw_value": "benign_educational",
+      "annotator": "bhargavi",
+      "count": 13,
+      "category_id": "benign_educational",
+      "candidates": [
+        "benign_educational"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-NHQA-250",
+        "S-NHQA-324",
+        "S-DFH-1127",
+        "S-D10K-010100051701",
+        "S-D10K-020000003601",
+        "S-D10K-010090048201",
+        "S-D10K-020000061601",
+        "S-D10K-010060030601",
+        "S-D10K-020000015601",
+        "S-D10K-010060034201",
+        "S-D10K-020000020601",
+        "S-D10K-010010003101",
+        "S-D10K-020000075101"
+      ]
+    },
+    {
+      "raw_value": "cyber_misuse",
+      "annotator": "bhargavi",
+      "count": 1,
+      "category_id": "cyber_misuse",
+      "candidates": [
+        "cyber_misuse"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-NHQA-366"
+      ]
+    },
+    {
+      "raw_value": "dangerous_instructions",
+      "annotator": "bhargavi",
+      "count": 1,
+      "category_id": "dangerous_instructions",
+      "candidates": [
+        "dangerous_instructions"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-DFH-955"
+      ]
+    },
+    {
+      "raw_value": "deception_manipulation",
+      "annotator": "bhargavi",
+      "count": 4,
+      "category_id": "deception_manipulation",
+      "candidates": [
+        "deception_manipulation"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-NHQA-291",
+        "S-NHQA-282",
+        "S-NHQA-121",
+        "S-DFH-1740"
+      ]
+    },
+    {
+      "raw_value": "fraud_scams",
+      "annotator": "bhargavi",
+      "count": 1,
+      "category_id": "fraud_scams",
+      "candidates": [
+        "fraud_scams"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-DFH-590"
+      ]
+    },
+    {
+      "raw_value": "hate_discrimination",
+      "annotator": "bhargavi",
+      "count": 4,
+      "category_id": "hate_discrimination",
+      "candidates": [
+        "hate_discrimination"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-NHQA-128",
+        "S-NHQA-6",
+        "S-NHQA-39",
+        "S-DFH-1497"
+      ]
+    },
+    {
+      "raw_value": "illegal_activities",
+      "annotator": "bhargavi",
+      "count": 1,
+      "category_id": "illegal_activities",
+      "candidates": [
+        "illegal_activities"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-DFH-1885"
+      ]
+    },
+    {
+      "raw_value": "sexual_safety",
+      "annotator": "bhargavi",
+      "count": 1,
+      "category_id": "sexual_safety",
+      "candidates": [
+        "sexual_safety"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-NHQA-163"
+      ]
+    },
+    {
+      "raw_value": "violence",
+      "annotator": "bhargavi",
+      "count": 1,
+      "category_id": "violence",
+      "candidates": [
+        "violence"
+      ],
+      "method": "exact_id",
+      "seed_ids": [
+        "S-NHQA-215"
+      ]
+    },
+    {
+      "raw_value": "Hate speech and  discriminagtion and Misinformation and manipulation ",
+      "annotator": "swasthik",
+      "count": 1,
+      "category_id": null,
+      "candidates": [
+        "hate_discrimination",
+        "deception_manipulation"
+      ],
+      "method": "multiple",
+      "seed_ids": [
+        "S-NHQA-250"
+      ]
+    },
+    {
+      "raw_value": "Harrasment and abuse",
+      "annotator": "swasthik",
+      "count": 1,
+      "category_id": "harassment_abuse",
+      "candidates": [
+        "harassment_abuse"
+      ],
+      "method": "typo",
+      "seed_ids": [
+        "S-DFH-1281"
+      ]
+    },
+    {
+      "raw_value": "Hate speech and  discriminagtion ",
+      "annotator": "swasthik",
+      "count": 1,
+      "category_id": "hate_discrimination",
+      "candidates": [
+        "hate_discrimination"
+      ],
+      "method": "typo",
+      "seed_ids": [
+        "S-NHQA-6"
+      ]
+    },
+    {
+      "raw_value": "harrasment_abuse",
+      "annotator": "bhargavi",
+      "count": 1,
+      "category_id": "harassment_abuse",
+      "candidates": [
+        "harassment_abuse"
+      ],
+      "method": "typo",
+      "seed_ids": [
+        "S-DFH-1281"
+      ]
+    }
+  ],
+  "worksheet_check": {
+    "matches": true,
+    "computed_disagreements": 8,
+    "worksheet_rows": 8,
+    "missing_from_worksheet": [],
+    "extra_in_worksheet": [],
+    "field_differences": []
+  },
+  "outputs": {
+    "review_layer_v0.1.jsonl": "b6093bf8c61faaee2b8397474143ebd71a68e64f6a0beee49047537cdcd53c18"
+  }
+}
