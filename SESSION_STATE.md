@@ -1,6 +1,6 @@
 # IndicSafe — Session State
 
-Last updated: 2026-10-08 · Build-guide Phase 1 complete, **not committed** · next: guide Phase 2 (Transformation Engine)
+Last updated: 2026-10-08 · Build-guide Phase 2 (Transformation Engine) implemented, **not committed**, awaiting review · next: guide Phase 3 (Language/script layer)
 
 ## Objective
 
@@ -35,6 +35,16 @@ Build a reproducible, provenance-rich dataset generator for an Indian multilingu
 - **Tests:** 86 pass.
   - They run on a fixture mini-project built in a temp directory, plus checksum checks on the real files.
   - A mutation check confirmed the tests catch broken duplicate detection and a broken diversity guard.
+
+## Implemented (Phase 2 — Transformation Engine)
+
+- **Modules:** `generator/transformation_engine.py` (abstract `Transformation`, engine, provider registry, validation hooks, lineage check/trace, run export), `generator/{translation,transliteration,paraphrase}.py` (adapter ABCs + transformations). Test doubles in `tests/fakes.py` (generation_method `mock`).
+- **Records** (`generator/schemas.py`, frozen): `VariantRecord` (design §5.2 fields; root = identity copy of a VALID seed with `parent_prompt_id=None`; every child has `parent_prompt_id`, `seed_id`, `seed_version`, `lineage` = ancestor ids) and `TransformationRecord` (spec §11 + resolved parameters, provider/version/model, request fingerprint, derived seed, raw output, hook results, status SUCCEEDED / VALIDATION_FAILED / ERROR).
+- **Deterministic ids:** `T-<sha256(canonical request)[:16]>`, `P-<seed suffix>-<same hash>`. Request = type + parent id + parent content hash + resolved params + provider name/version/model. Run id and wall clock are excluded. Per-request `derived_seed` = hash(random_seed, request).
+- **Validation hooks** (configured per type in `generation.yaml` → `transformation_engine.validation_hooks`): non_empty, text_integrity, expected_script (qc.script thresholds), differs_from_parent (`condition_not_realised`), length_ratio (WARN). Failed children are kept but can't be parents unless `allow_failed_parent=True`.
+- **Providers** are built from config via `register_provider` / `build_provider`. **No real adapter is implemented:** `indictrans2` (configured default) raises `ProviderUnavailableError` until its adapter exists; LLM adapters are disabled; transliteration has no default provider yet.
+- **Not built (by instruction):** LLM generation, code-mixing engine, language ID, semantic/label-consistency QC, batch jobs, CLI script, SQLite.
+- **Tests:** 140 pass (54 new). Mutation checks confirmed the tests catch removed hooks, a constant derived seed, and dropping the parent content hash from ids.
 
 ## Key decisions
 
@@ -87,7 +97,8 @@ Build a reproducible, provenance-rich dataset generator for an Indian multilingu
 | # | Phase | Status |
 |---|---|---|
 | 1 | Seed Manager + provenance | **Done**; all 9 guide-§7 checks re-verified on 2026-10-08 |
-| 2 | Transformation Engine: interface, translation adapter (IndicTrans2 default, optional LLM), paraphrase and transliteration interfaces, `parent_prompt_id`/`seed_id` lineage, validation hooks | **Next** (use the guide §10 prompt) |
+| 2 | Transformation Engine: interface, translation adapter (IndicTrans2 default, optional LLM), paraphrase and transliteration interfaces, `parent_prompt_id`/`seed_id` lineage, validation hooks | **Done, awaiting review** (interfaces only; real IndicTrans2 / transliteration adapters still to add) |
+| 2b | Real adapters: IndicTrans2 translation + chosen romanisation method; pilot translation evaluation | **Next** (or fold into Phase 3) |
 | 3 | Language/script layer | |
 | 4 | Code-mixing engine | |
 | 5 | QC pipeline | |
@@ -102,15 +113,12 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 
 ## Exact next steps
 
-1. Inspect the pilot: `data/pilot/pilot_seeds_v0.1-pilot-seeds.csv`.
-2. Commit the milestone in PowerShell:
-
-   ```powershell
-   git add .; git commit -m "phase 0 project audit and seed manager"
-   ```
-
-   This also commits the two PDF deletions; run `git restore docs/` first if they were accidental.
-3. Start a **new Claude Code chat** and paste the build guide's §10 prompt (Phase 2, Transformation Engine). Begin it with: "Read SESSION_STATE.md first."
+1. Review Phase 2 (`git diff`, new modules, `tests/test_transformation_engine.py`).
+2. Commit in PowerShell: `git add .; git commit -m "phase 2 transformation engine"`.
+3. Next phase, in a new chat that starts with "Read SESSION_STATE.md first.":
+   - real IndicTrans2 adapter (adds torch/transformers deps) and a romanisation method;
+   - a small pilot translation run and native-speaker review;
+   - language/script layer (language ID for hi vs mr).
 4. Still open on the team side:
    - Gujarati annotators.
    - Code-mix reference sources for mr and gu, inspected in Phase 4 (code-mixing).

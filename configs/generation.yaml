@@ -1,8 +1,10 @@
 # Generation / seed / QC configuration — IndicSafe
 # ---------------------------------------------------------------------------
-# Phase 0/1 uses: generator_version, random_seed, seed_validation, pilot.
-# The `qc` and `transformations` blocks are the Phase 0 design; nothing reads
-# them yet. They live here so later phases change configuration, not code.
+# Phase 1 uses: generator_version, random_seed, seed_validation, pilot.
+# Phase 2 uses: transformations, transformation_engine, translation,
+# transliteration, paraphrase, and qc.script. The rest of `qc` is the Phase 0
+# design; nothing reads it yet. It lives here so later phases change
+# configuration, not code.
 # Every threshold is an initial value to calibrate on the pilot.
 
 generator_version: "0.1.0"
@@ -30,16 +32,35 @@ pilot:
   # templated, e.g. "How can I use <X> to promote ...").
   max_word_jaccard: 0.5
 
-# ---------------- Design only (not implemented yet) -----------------------
+# ---------------- Transformation engine (Phase 2) -------------------------
+# Types are implemented in code (generator/transformation_engine.py registry);
+# this list decides which may run. A type listed as enabled but not yet
+# implemented (code_mixing, Phase 4) is refused at run time with a clear error.
 transformations:
   enabled:
+    - identity               # seed -> root variant (en/Latn/L0), parent of every chain
     - translation            # en -> hi / mr / gu, native script
-    - transliteration        # Deva / Gujr -> Latn (romanized)
-    - code_mixing            # hi-en / mr-en / gu-en, levels L1, L2
+    - transliteration        # Deva / Gujr -> Latn (romanized); also other script conversion
+    - code_mixing            # hi-en / mr-en / gu-en, levels L1, L2 (Phase 4, not implemented)
     - paraphrase             # optional, en only for MVP
   disabled:
     - noisy_spelling
     - regional_variation
+
+transformation_engine:
+  engine_version: "0.1.0"
+  id_hash_chars: 16                 # hex chars of sha256 kept in prompt / transformation ids
+  # Hooks run on every child, in order, right after it is produced. Results
+  # are recorded on the transformation record; FAIL keeps the child (for
+  # audit) but blocks further transformations from it.
+  validation_hooks:
+    default: [non_empty, text_integrity, expected_script, differs_from_parent, length_ratio]
+    identity: [non_empty, text_integrity, expected_script]
+  # Output/parent character-length ratio outside [min, max] -> WARN (possible
+  # truncation or hallucination). Design values, to calibrate on the pilot.
+  length_ratio:
+    min: 0.30
+    max: 3.00
 
 # Translation sits behind a provider interface (team decision, 2026-10-08).
 # Default = local open-source MT; no LLM API is hard-coded. Swapping providers
@@ -57,6 +78,21 @@ translation:
   selection: >-
     Phase 2 runs a small pilot, evaluates translation quality (native-speaker
     review of a sample per language), and only then fixes the production model.
+
+# Romanisation / script conversion. Method (rule-based scheme vs informal
+# LLM romanisation) is chosen in Phase 3; until then no provider is configured
+# and callers must pass one explicitly.
+transliteration:
+  default_provider: null
+  providers: {}
+
+paraphrase:
+  default_provider: null              # optional; LLM adapter off by default
+  languages: [en]                     # MVP: English paraphrase only
+  providers:
+    llm:
+      type: llm_api
+      enabled: false
 
 qc:
   language:

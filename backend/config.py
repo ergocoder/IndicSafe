@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -215,15 +215,122 @@ class PilotConfig(_Strict):
         return self
 
 
+# Transformation types the engine knows about. Which of them may run is
+# configuration (transformations.enabled); whether one is implemented is
+# decided by the engine's registry.
+TRANSFORMATION_TYPES = (
+    "identity",
+    "translation",
+    "transliteration",
+    "paraphrase",
+    "code_mixing",
+    "noisy_spelling",
+    "regional_variation",
+)
+ProviderType = Literal["local_mt", "llm_api", "rule_based", "reference"]
+
+
+class TransformationsConfig(_Strict):
+    enabled: list[str]
+    disabled: list[str] = []
+
+    @model_validator(mode="after")
+    def _known(self) -> "TransformationsConfig":
+        for t in [*self.enabled, *self.disabled]:
+            if t not in TRANSFORMATION_TYPES:
+                raise ValueError(f"unknown transformation type {t!r}")
+        both = set(self.enabled) & set(self.disabled)
+        if both:
+            raise ValueError(f"transformation(s) both enabled and disabled: {sorted(both)}")
+        if "identity" not in self.enabled:
+            raise ValueError("'identity' must be enabled: it creates the root variant of every chain")
+        return self
+
+
+class LengthRatioConfig(_Strict):
+    min: float = Field(gt=0.0)
+    max: float = Field(gt=0.0)
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "LengthRatioConfig":
+        if self.min >= self.max:
+            raise ValueError("length_ratio.min must be < length_ratio.max")
+        return self
+
+
+class TransformationEngineConfig(_Strict):
+    engine_version: str
+    id_hash_chars: int = Field(ge=8, le=64)
+    validation_hooks: dict[str, list[str]]
+    length_ratio: LengthRatioConfig
+
+    @model_validator(mode="after")
+    def _hooks(self) -> "TransformationEngineConfig":
+        if "default" not in self.validation_hooks:
+            raise ValueError("validation_hooks needs a 'default' entry")
+        for key in self.validation_hooks:
+            if key != "default" and key not in TRANSFORMATION_TYPES:
+                raise ValueError(f"validation_hooks for unknown transformation type {key!r}")
+        return self
+
+    def hooks_for(self, transformation_type: str) -> list[str]:
+        return self.validation_hooks.get(transformation_type, self.validation_hooks["default"])
+
+
+class ProviderConfig(_Strict):
+    type: ProviderType
+    enabled: bool
+    target_languages: list[str] = []
+    model: str | None = None
+    options: dict[str, Any] = {}
+
+
+class AdapterConfig(_Strict):
+    default_provider: str | None
+    providers: dict[str, ProviderConfig] = {}
+    selection: str | None = None
+
+    @model_validator(mode="after")
+    def _default_exists(self) -> "AdapterConfig":
+        if self.default_provider is not None and self.default_provider not in self.providers:
+            raise ValueError(f"default_provider {self.default_provider!r} is not in providers")
+        return self
+
+
+class ParaphraseConfig(AdapterConfig):
+    languages: list[str] = []
+
+
+class ScriptQCConfig(BaseModel):
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+    native_min_share: float = Field(ge=0.0, le=1.0)
+    romanized_min_share: float = Field(ge=0.0, le=1.0)
+
+
+class QCConfig(BaseModel):
+    # extra="allow": only the parts used so far are typed; the remaining QC
+    # design blocks are validated when their phase is implemented.
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+    script: ScriptQCConfig
+
+
 class GenerationConfig(BaseModel):
-    # extra="allow": the design-only `transformations` / `qc` blocks are kept
-    # in the file but not validated until their phase is implemented.
+    # extra="allow": design-only blocks may be added to the file before their
+    # phase is implemented.
     model_config = ConfigDict(extra="allow", frozen=True)
 
     generator_version: str
     random_seed: int
     seed_validation: SeedValidationConfig
     pilot: PilotConfig
+    transformations: TransformationsConfig
+    transformation_engine: TransformationEngineConfig
+    translation: AdapterConfig
+    transliteration: AdapterConfig
+    paraphrase: ParaphraseConfig
+    qc: QCConfig
 
 
 # --------------------------------------------------------------- settings
@@ -256,6 +363,16 @@ class Settings(BaseModel):
         for sid in self.taxonomy.source_category_mappings:
             if sid not in self.sources.sources:
                 raise ValueError(f"taxonomy mapping for unknown source {sid!r}")
+        gen = self.generation
+        langs = self.languages.languages
+        for kind in ("translation", "transliteration", "paraphrase"):
+            for pname, p in getattr(gen, kind).providers.items():
+                for lang in p.target_languages:
+                    if lang not in langs:
+                        raise ValueError(f"{kind} provider {pname!r} targets unknown language {lang!r}")
+        for lang in gen.paraphrase.languages:
+            if lang not in langs:
+                raise ValueError(f"paraphrase language {lang!r} not in languages.yaml")
         return self
 
 

@@ -2,7 +2,7 @@
 
 An automated framework for generating and benchmarking LLM safety data for Indian multilingual, transliterated and code-mixed languages. It is a BE major project.
 
-**Current phase: 0/1.** Built so far: configuration, source registry, Seed Manager, provenance, and a 30-seed pilot. The transformation engine, code-mixing, the full QC pipeline, the review UI and the classifier are **not built yet**. See [docs/phase0_design.md](docs/phase0_design.md) for the design and the phase plan.
+**Current phase: 2 (Transformation Engine).** Built so far: configuration, source registry, Seed Manager, provenance, a 30-seed pilot, and the transformation engine (interfaces, lineage, validation hooks; no real MT/transliteration adapter yet). Code-mixing, the full QC pipeline, the review UI and the classifier are **not built yet**. See [docs/phase0_design.md](docs/phase0_design.md) for the design and the phase plan.
 
 ## Setup
 
@@ -42,12 +42,16 @@ backend/config.py          YAML loading + validation (pydantic)
 configs/sources.yaml       raw-file registry: role, format, field mapping, SHA-256, licence status
 configs/languages.yaml     languages, scripts (Unicode ranges), code-mix level bands
 configs/taxonomy.yaml      frozen safety taxonomy (v1.0) + provisional source-category mappings
-configs/generation.yaml    versions, random seed, seed validation, pilot, (design-only) QC thresholds
-generator/schemas.py       SeedRecord schema
+configs/generation.yaml    versions, random seed, seed validation, pilot, transformations/providers/hooks, QC thresholds
+generator/schemas.py       SeedRecord, VariantRecord, TransformationRecord schemas
 generator/source_readers.py  read-only zip readers
 generator/text_utils.py    normalisation, dedup key, script detection
 generator/provenance.py    checksums, run ids, manifests
 generator/seed_manager.py  import / validate / de-duplicate / select / export
+generator/transformation_engine.py  transformation interface, deterministic ids, lineage, validation hooks, provider registry, run export
+generator/translation.py   TranslationProvider interface + translation transformation
+generator/transliteration.py  Transliterator (script conversion) interface + transformation
+generator/paraphrase.py    ParaphraseProvider interface + paraphrase transformation
 scripts/import_seeds.py    CLI
 tests/                     pytest suite (fixture mini-project + real-file checksum checks)
 ```
