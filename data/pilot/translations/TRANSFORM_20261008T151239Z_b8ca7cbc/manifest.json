@@ -1,8 +1,8 @@
 {
-  "run_id": "TRANSFORM_20261008T112714Z_1f1aa392",
+  "run_id": "TRANSFORM_20261008T151239Z_b8ca7cbc",
   "run_type": "transformation",
-  "started_at": "2026-10-08T11:27:14Z",
-  "finished_at": "2026-10-08T11:30:20Z",
+  "started_at": "2026-10-08T15:12:39Z",
+  "finished_at": "2026-10-08T15:17:34Z",
   "generator_version": "0.1.0",
   "taxonomy_version": "1.0",
   "taxonomy_status": "frozen",
@@ -11,13 +11,13 @@
   "random_seed": 42,
   "config_sha256": {
     "sources.yaml": "fb93a54cbb954b0a912e6852a414a05f1eada2b88149719c68feadcb2f46add2",
-    "languages.yaml": "bd2a30fe2c61c44eb94a04e119afc025e8fdc83faea70ba7bc420c5315300403",
+    "languages.yaml": "5ba6b2dd44e3f61bc2382ee9042ef99185893029e3252b9fe3fc62ddd1158a6c",
     "taxonomy.yaml": "46b23d31872abadc0a8677d8249106593fb75e4b03db371ebad54eeb99b54503",
-    "generation.yaml": "8c5f1026ba926e0d44d49b5107d6c351809da66b21c60e2b3bff52c2e5543396"
+    "generation.yaml": "f014590ddfeaafb1109125b742e7cb2f4d58323984a12794d26a2eb513de63b1"
   },
   "source_files": {},
   "git": {
-    "commit": "01dd483471d47c4ce0a68c5ad610249c68556847",
+    "commit": "dbdcfc128897c1429660d1d8977f4fac45c9e500",
     "dirty": false
   },
   "environment": {
@@ -185,7 +185,7 @@
     [
       "code_mixing",
       "mt_lexical_swap",
-      "2.0+align:indictrans2-1.0+float16+beam5+max256+phon:colloquial_roman-1.1+aksharamukha-2.3+schwa1+nasal1+pos:spacy-3.8.16+en_core_web_sm-3.8.0+verbs1+tp0.5",
+      "2.0+align:indictrans2-1.0+float16+beam5+max256+phon:colloquial_roman-1.2+aksharamukha-2.3+schwa1+nasal1+pos:spacy-3.8.16+en_core_web_sm-3.8.0+verbs1+tp0.5",
       "ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232"
     ],
     [
@@ -203,7 +203,7 @@
     [
       "transliteration",
       "colloquial_roman",
-      "1.1+aksharamukha-2.3+schwa1+nasal1",
+      "1.2+aksharamukha-2.3+schwa1+nasal1",
       "aksharamukha/RomanColloquial"
     ]
   ],
@@ -212,18 +212,18 @@
       "code_mixing:SUCCEEDED": 164,
       "code_mixing:VALIDATION_FAILED": 16,
       "identity:SUCCEEDED": 30,
-      "translation:SUCCEEDED": 90,
-      "transliteration:SUCCEEDED": 254
+      "translation:SUCCEEDED": 120,
+      "transliteration:SUCCEEDED": 284
     },
     "variants_by_validation_status": {
       "FAIL": 16,
-      "PASS": 526,
+      "PASS": 586,
       "WARN": 12
     }
   },
   "label_note": "intended_label is inherited from the seed and provisional; label_consistency_status is UNCHECKED until the QC phase.",
   "outputs": {
-    "variants.jsonl": "a8ca707134512b1a9987291202c8a897448c328251577a2397b4c1ff23ca0cf8",
-    "transformations.jsonl": "7bceac45d15750b167c1b087b516a077c8c4d0c30550460ceb184f2393e160cd"
+    "variants.jsonl": "3d847a8a251b0901bd13bee4fa515ac65d299ecc455a86a48dd9d1f31013ed3b",
+    "transformations.jsonl": "44fd9f3aa8f967e3b7e7d7ad94bc148484ba13d4a72de79711c8349de8f569f9"
   }
 }

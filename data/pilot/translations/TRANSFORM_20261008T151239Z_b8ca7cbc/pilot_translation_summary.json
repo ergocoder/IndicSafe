@@ -1,5 +1,5 @@
 {
-  "run_id": "TRANSFORM_20261008T112714Z_1f1aa392",
+  "run_id": "TRANSFORM_20261008T151239Z_b8ca7cbc",
   "input_seeds": {
     "path": "D:\\Projects\\IndicSafe\\data\\pilot\\pilot_seeds_v0.2-pilot-seeds.jsonl",
     "sha256": "c0fb78158048b5a1e4d16a38b144dcaa4885af4712ba36fc884944e1bc274412",
@@ -14,13 +14,14 @@
   "languages": [
     "hi",
     "mr",
-    "gu"
+    "gu",
+    "te"
   ],
   "providers": [
-    "code_mixing: mt_lexical_swap 2.0+align:indictrans2-1.0+float16+beam5+max256+phon:colloquial_roman-1.1+aksharamukha-2.3+schwa1+nasal1+pos:spacy-3.8.16+en_core_web_sm-3.8.0+verbs1+tp0.5 ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232",
+    "code_mixing: mt_lexical_swap 2.0+align:indictrans2-1.0+float16+beam5+max256+phon:colloquial_roman-1.2+aksharamukha-2.3+schwa1+nasal1+pos:spacy-3.8.16+en_core_web_sm-3.8.0+verbs1+tp0.5 ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232",
     "identity: copy 0.1.0 None",
     "translation: indictrans2 1.0+float16+beam5+max256 ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232",
-    "transliteration: colloquial_roman 1.1+aksharamukha-2.3+schwa1+nasal1 aksharamukha/RomanColloquial"
+    "transliteration: colloquial_roman 1.2+aksharamukha-2.3+schwa1+nasal1 aksharamukha/RomanColloquial"
   ],
   "language_qc": {
     "detector": "lingua-2.2.0",
@@ -30,7 +31,8 @@
         "en",
         "hi",
         "mr",
-        "gu"
+        "gu",
+        "te"
       ],
       "min_marker_tokens": 2,
       "pass_confidence": 0.8,
@@ -48,15 +50,17 @@
       "hi/Latn:PASS": 84,
       "mr/Deva:PASS": 89,
       "mr/Deva:REVIEW": 1,
-      "mr/Latn:PASS": 84
+      "mr/Latn:PASS": 84,
+      "te/Latn:PASS": 30,
+      "te/Telu:PASS": 30
     }
   },
   "transformations_by_type_status": {
     "code_mixing:SUCCEEDED": 164,
     "code_mixing:VALIDATION_FAILED": 16,
     "identity:SUCCEEDED": 30,
-    "translation:SUCCEEDED": 90,
-    "transliteration:SUCCEEDED": 254
+    "translation:SUCCEEDED": 120,
+    "transliteration:SUCCEEDED": 284
   },
   "code_mix": {
     "levels": [
@@ -118,11 +122,12 @@
     }
   },
   "outputs": {
-    "variants.jsonl": "a8ca707134512b1a9987291202c8a897448c328251577a2397b4c1ff23ca0cf8",
-    "transformations.jsonl": "7bceac45d15750b167c1b087b516a077c8c4d0c30550460ceb184f2393e160cd",
-    "language_qc.jsonl": "ee2dae4d499ce6c9dac7b8e3bb1106bf1c5aaa4892d61c802b1c995df0e9ca6c",
-    "review_hi.csv": "18a079158c28ff5ba98171608f973d0bad1faa18f0128e61ac83f5ebd3f8bac9",
-    "review_mr.csv": "81d189543c842403c5b88753591c056133b6cde5376bcff739732ad0f4f1c852",
-    "review_gu.csv": "ebdbad11cc8a649781885bef104fd664424c45795cb6bb63085564cefb020a2d"
+    "variants.jsonl": "3d847a8a251b0901bd13bee4fa515ac65d299ecc455a86a48dd9d1f31013ed3b",
+    "transformations.jsonl": "44fd9f3aa8f967e3b7e7d7ad94bc148484ba13d4a72de79711c8349de8f569f9",
+    "language_qc.jsonl": "13d1daa22a6a5687d90778f4d97f06347f4e882955b494dfcb465b2dd2a31700",
+    "review_hi.csv": "b70fecbd03ba997620d5a71fb034da8112da2f0fc533f58e3a2bed11df838917",
+    "review_mr.csv": "c551a9726af99069df753df631c6895b8b396a9b1c2804ce51ad65e2c42771de",
+    "review_gu.csv": "2a6757fdd71e8d4918a5d41b52380ea58bbda08033776e33a5b96424e6ba88fb",
+    "review_te.csv": "1365dc3a96a454e30c3d3b6c72241a63315c1c1edf491d7ae5ef5a38b5337d5a"
   }
 }
