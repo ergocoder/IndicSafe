@@ -1,0 +1,126 @@
+{
+  "run_id": "REVIEW_20261008T073321Z_7dbbfe84",
+  "run_type": "pilot_review_build",
+  "started_at": "2026-10-08T07:33:21Z",
+  "finished_at": "2026-10-08T07:33:21Z",
+  "generator_version": "0.1.0",
+  "taxonomy_version": "1.0",
+  "taxonomy_status": "frozen",
+  "languages_version": "0.1",
+  "sources_version": "0.1",
+  "random_seed": 42,
+  "config_sha256": {
+    "sources.yaml": "fb93a54cbb954b0a912e6852a414a05f1eada2b88149719c68feadcb2f46add2",
+    "languages.yaml": "bd2a30fe2c61c44eb94a04e119afc025e8fdc83faea70ba7bc420c5315300403",
+    "taxonomy.yaml": "46b23d31872abadc0a8677d8249106593fb75e4b03db371ebad54eeb99b54503",
+    "generation.yaml": "329f1e4753b8da222fdd22bff0ae5046739e4c63c64407a128d641167257f189"
+  },
+  "source_files": {},
+  "git": {
+    "commit": "deb09075363fdc242d540f30985db801248e775d",
+    "dirty": false
+  },
+  "environment": {
+    "python": "3.13.7",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "packages": {
+      "pydantic": "2.13.5",
+      "PyYAML": "6.0.3",
+      "pytest": "8.4.2"
+    }
+  },
+  "dataset_version": "v0.2-pilot-seeds",
+  "parent_dataset_version": "v0.1-pilot-seeds",
+  "input_pilot": "data/pilot/pilot_seeds_v0.1-pilot-seeds.jsonl",
+  "record_count": 30,
+  "inputs": {
+    "data/pilot/pilot_seeds_v0.1-pilot-seeds.jsonl": "2d43e03c042770d34d5ac61cd7372e987d6c61198bacd65aa625875ec22b5cd5",
+    "data/pilot/pilot_seeds_v0.1-pilot-seeds.manifest.json": "db75fadc18a592ebecd9dc9018d002e7ada86c10b5bae2f59fc79cee02a79e2c",
+    "data/pilot/reviews/category_mapping_v0.1.csv": "cdd782272cee8644ff0684fcb77d547049a9722ddad0adcee6b21df0d7832119",
+    "data/pilot/reviews/pilot_seeds_v0.1-pilot-seeds_bhargavi_annotated.csv": "e4562f5962b1892d2c2b3db8c8242bd3d0307644c614075b58a1f6adc39a50e9",
+    "data/pilot/reviews/pilot_seeds_v0.1-pilot-seeds_swasthik_annotated.csv": "6c2c256cce441b2005d9d3ad75bde1d2bd01815095536e73aaf32ab090257204",
+    "data/pilot/reviews/adjudication_worksheet_v0.1.csv": "0f874981edae10426f897a952068f79941342ca7ff18f63e90f717f13c4f5969"
+  },
+  "agreement": {
+    "annotators": [
+      "bhargavi",
+      "swasthik"
+    ],
+    "label": {
+      "n_seeds": 30,
+      "n_compared": 30,
+      "n_agree": 23,
+      "percent_agreement": 76.67,
+      "cohen_kappa": 0.5842,
+      "pairs": {
+        "AMBIGUOUS|SAFE": 1,
+        "AMBIGUOUS|UNSAFE": 2,
+        "SAFE|AMBIGUOUS": 1,
+        "SAFE|SAFE": 11,
+        "SAFE|UNSAFE": 1,
+        "UNSAFE|SAFE": 2,
+        "UNSAFE|UNSAFE": 12
+      }
+    },
+    "category": {
+      "n_seeds": 30,
+      "n_compared": 27,
+      "n_agree": 25,
+      "percent_agreement": 92.59,
+      "cohen_kappa": 0.9031,
+      "pairs": {
+        "benign_educational|benign_educational": 11,
+        "benign_educational|dangerous_instructions": 1,
+        "cyber_misuse|cyber_misuse": 1,
+        "dangerous_instructions|dangerous_instructions": 1,
+        "deception_manipulation|deception_manipulation": 4,
+        "fraud_scams|fraud_scams": 1,
+        "harassment_abuse|harassment_abuse": 1,
+        "hate_discrimination|deception_manipulation": 1,
+        "hate_discrimination|hate_discrimination": 3,
+        "illegal_activities|illegal_activities": 1,
+        "sexual_safety|sexual_safety": 1,
+        "violence|violence": 1
+      },
+      "note": "only seeds where both category cells resolved to one category_id"
+    },
+    "needs_adjudication": [
+      "S-NHQA-250",
+      "S-NHQA-163",
+      "S-NHQA-128",
+      "S-NHQA-324",
+      "S-NHQA-253",
+      "S-DFH-1740",
+      "S-DFH-1497",
+      "S-DFH-307"
+    ]
+  },
+  "distributions": {
+    "final_label": {
+      "AMBIGUOUS": 2,
+      "SAFE": 12,
+      "UNSAFE": 16
+    },
+    "category": {
+      "benign_educational": 11,
+      "cyber_misuse": 1,
+      "dangerous_instructions": 2,
+      "deception_manipulation": 6,
+      "fraud_scams": 1,
+      "harassment_abuse": 1,
+      "hate_discrimination": 5,
+      "illegal_activities": 1,
+      "sexual_safety": 1,
+      "violence": 1
+    },
+    "label_status": {
+      "human_adjudicated": 8,
+      "human_agreed": 22
+    }
+  },
+  "label_note": "final_label comes from the two annotators where they agree on label and category, otherwise from the team's adjudication worksheet.",
+  "outputs": {
+    "pilot_seeds_v0.2-pilot-seeds.jsonl": "27b284b3537c64c6302fd4b961393f84c78bd18978140512a497e2cbe8650157",
+    "pilot_seeds_v0.2-pilot-seeds.csv": "b1e445d3b2b7e4c3f65ec3d72beccc6708bc91046e2e26cb8d37ca550fb70fdc"
+  }
+}
