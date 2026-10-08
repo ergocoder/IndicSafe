@@ -43,7 +43,7 @@ from generator.translation import TranslationProvider
 ADAPTER_VERSION = "1.0"
 
 # ISO 639-1 (languages.yaml) -> FLORES-200 codes used by IndicTrans2.
-FLORES = {"en": "eng_Latn", "hi": "hin_Deva", "mr": "mar_Deva", "gu": "guj_Gujr"}
+FLORES = {"en": "eng_Latn", "hi": "hin_Deva", "mr": "mar_Deva", "gu": "guj_Gujr", "te": "tel_Telu"}
 
 
 @dataclass(frozen=True)

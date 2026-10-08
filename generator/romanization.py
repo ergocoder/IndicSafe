@@ -13,6 +13,19 @@ Method (deterministic, rule-based, via Aksharamukha):
     word-final anusvara / candrabindu ─► न्                  [final_nasal_as_n]
     Devanagari ─► Aksharamukha "RomanColloquial", pre-option RemoveSchwaHindi
 
+Telugu (Dravidian) takes its own path, without the Hindi schwa rules: Telugu
+words keep their final vowels and inherent "a" (pustakam, cheppadu), so
+schwa deletion would be wrong. Aksharamukha writes ISO 15919; `telugu_colloquial`
+then turns it into ASCII as people type ("miru ela unnaru"):
+
+    jñ -> gn (gnanam); vocalic r -> ri (krishnudu)
+    anusvara -> n before a stop or nasal (gurinchi, nundi, byank), else m (pustakam, deshamlo)
+    ISO c / ch -> ch / chh; ś ṣ -> sh
+    remaining diacritics stripped: long vowels collapse (ā ī ū ē ō -> a i u e o),
+    retroflex ṭ ḍ ṇ ḷ -> t d n l, ṅ ñ -> n, ṟ -> r, ḥ -> h; then lowercase
+
+`schwa_deletion` and `final_nasal_as_n` apply to Devanagari / Gujarati only.
+
 Known limits: one spelling per word (real users vary: "hai" / "he", "kya" /
 "kyaa"); Hindi schwa-deletion rules are applied to Marathi and Gujarati too,
 which is mostly right but not always; long vowels are not marked, so a few
@@ -23,20 +36,35 @@ from __future__ import annotations
 
 import importlib.metadata
 import re
+import unicodedata
 
 from backend.config import ProviderConfig
 from generator.transformation_engine import ProviderError, ProviderInfo, ProviderOutput, ProviderUnavailableError
 from generator.transliteration import Transliterator
 
-ADAPTER_VERSION = "1.1"   # 1.1: Latin-script runs are passed through untouched
+ADAPTER_VERSION = "1.2"   # 1.1: Latin runs passed through; 1.2: Telugu (Dravidian rules)
 SCHEME = "RomanColloquial"
-_AKSHARAMUKHA_SCRIPT = {"Deva": "Devanagari", "Gujr": "Gujarati"}
+_AKSHARAMUKHA_SCRIPT = {"Deva": "Devanagari", "Gujr": "Gujarati", "Telu": "Telugu"}
+_DRAVIDIAN = {"Telu"}           # romanised from ISO 15919 by telugu_colloquial, no schwa deletion
+# anusvara before these (ISO, after jñ -> gn) is n; elsewhere m
+_ANUSVARA_N = re.compile(r"ṁ(?=[kgcjṭḍtdnñṅṇ])")
 # anusvara (U+0902) or candrabindu (U+0901) closing a Devanagari word
 _FINAL_NASAL = re.compile(r"[ँं](?![ऀ-ॣॱ-ॿ])")
 _OPTIONS = ("schwa_deletion", "final_nasal_as_n")
 # Latin words (English in code-mixed text, names the MT kept) are not sent to
 # Aksharamukha, which lowercases some of them ("Munich" -> "munich").
 _LATIN_RUN = re.compile(r"[A-Za-zÀ-ɏ][A-Za-zÀ-ɏ0-9'’.-]*")
+
+
+def telugu_colloquial(iso: str) -> str:
+    """ISO 15919 Telugu (Aksharamukha) -> colloquial ASCII."""
+    t = unicodedata.normalize("NFC", iso)
+    t = t.replace("jñ", "gn").replace("r̥̄", "ri").replace("r̥", "ri").replace("l̥", "li")
+    t = _ANUSVARA_N.sub("n", t).replace("ṁ", "m")
+    t = t.replace("ch", "\0").replace("c", "ch").replace("\0", "chh")
+    t = t.replace("ś", "sh").replace("ṣ", "sh").replace("Ś", "Sh").replace("Ṣ", "Sh")
+    t = "".join(ch for ch in unicodedata.normalize("NFD", t) if unicodedata.category(ch) != "Mn")
+    return t.lower()
 
 
 class ColloquialRomanizer(Transliterator):
@@ -76,6 +104,8 @@ class ColloquialRomanizer(Transliterator):
     def _romanize(self, segment: str, source_script: str) -> str:
         if not segment.strip():
             return segment
+        if source_script in _DRAVIDIAN:
+            return telugu_colloquial(self._ak.process(_AKSHARAMUKHA_SCRIPT[source_script], "ISO", segment))
         deva = segment
         if source_script != "Deva":
             deva = self._ak.process(_AKSHARAMUKHA_SCRIPT[source_script], "Devanagari", segment)
@@ -96,11 +126,12 @@ class ColloquialRomanizer(Transliterator):
             out = "".join(parts)
         except Exception as e:  # noqa: BLE001 - library failure is a provider failure
             raise ProviderError(f"aksharamukha failed: {type(e).__name__}: {e}") from e
+        dravidian = source_script in _DRAVIDIAN
         return ProviderOutput(out, {
             "latin_runs_passed_through": True,
-            "scheme": SCHEME,
-            "pivot_script": "Deva" if source_script != "Deva" else None,
-            "schwa_deletion": self.schwa_deletion,
-            "final_nasal_as_n": self.final_nasal_as_n,
+            "scheme": "ISO+telugu_colloquial" if dravidian else SCHEME,
+            "pivot_script": None if dravidian or source_script == "Deva" else "Deva",
+            "schwa_deletion": False if dravidian else self.schwa_deletion,
+            "final_nasal_as_n": False if dravidian else self.final_nasal_as_n,
             "aksharamukha_version": self.ak_version,
         })

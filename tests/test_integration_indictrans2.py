@@ -35,7 +35,7 @@ def _skip_reason(model: str, revision: str | None, cache_dir: str | None) -> str
     return None
 
 
-def test_indictrans2_gpu_translates_and_romanises_hi_mr_gu():
+def test_indictrans2_gpu_translates_and_romanises_hi_mr_gu_te():
     settings = load_settings()
     cfg = settings.generation.translation.providers["indictrans2"]
     reason = _skip_reason(cfg.model, cfg.options.get("revision"), cfg.options.get("cache_dir"))
@@ -47,7 +47,7 @@ def test_indictrans2_gpu_translates_and_romanises_hi_mr_gu():
     tl, lid = build_transliterator(settings), build_language_identifier(settings)
     engine = TransformationEngine(settings, run_id="TRANSFORM_INTEGRATION")
     root = engine.root(make_seed()).variant      # "Which river flows through the city of Varanasi?"
-    for lang, script in (("hi", "Deva"), ("mr", "Deva"), ("gu", "Gujr")):
+    for lang, script in (("hi", "Deva"), ("mr", "Deva"), ("gu", "Gujr"), ("te", "Telu")):
         res = engine.apply(root, TranslationTransformation(mt), {"target_language": lang})
         assert res.ok, res.transformation
         v, t = res.variant, res.transformation

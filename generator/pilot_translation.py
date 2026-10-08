@@ -117,8 +117,9 @@ def run_pilot_translation(
             latin[(sid, lang)] = None
             if res.variant is not None and res.variant.validation_status != "FAIL":
                 latin[(sid, lang)] = engine.apply(res.variant, tl).variant
-        if cm is None:
-            continue
+        partner = settings.languages.languages[lang].code_mix_partner
+        if cm is None or partner is None or not code_mixer.supports(lang, partner):
+            continue                # e.g. te: translation + romanisation only (languages.yaml notes)
         script = settings.languages.languages[lang].native_script
         code_mixer.prepare([r.prompt for r in roots.values()], lang)
         for sid in roots:

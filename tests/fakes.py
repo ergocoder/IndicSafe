@@ -74,7 +74,7 @@ class FakeTransliterator(Transliterator):
         return self._info
 
     def supports(self, language, source_script, target_script):
-        return target_script == "Latn" and source_script in ("Deva", "Gujr")
+        return target_script == "Latn" and source_script in ("Deva", "Gujr", "Telu")
 
     def transliterate(self, text, *, language, source_script, target_script, seed):
         self.calls.append(dict(text=text, language=language, source_script=source_script,

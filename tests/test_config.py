@@ -15,7 +15,7 @@ def _edit(project: Path, fname: str, fn) -> None:
 
 def test_real_repo_configs_load():
     s = load_settings()
-    assert set(s.languages.enabled_languages()) == {"en", "hi", "mr", "gu"}
+    assert set(s.languages.enabled_languages()) == {"en", "hi", "mr", "gu", "te"}
     assert s.taxonomy.labels == ["SAFE", "UNSAFE", "AMBIGUOUS"]
     assert s.taxonomy.status == "frozen" and s.taxonomy.taxonomy_version == "1.0"
     assert set(s.config_hashes) == {"sources.yaml", "languages.yaml", "taxonomy.yaml", "generation.yaml"}

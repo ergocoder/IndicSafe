@@ -1,7 +1,7 @@
 """Translate + romanise + code-mix the pilot seeds and export native-speaker review sheets.
 
 Usage (from the project root):
-    python scripts/run_pilot_translation.py                      # v0.2 pilot, hi mr gu, L1/L2
+    python scripts/run_pilot_translation.py                      # v0.2 pilot, hi mr gu te; L1/L2 for hi mr gu
     python scripts/run_pilot_translation.py --no-code-mix        # translation + romanisation only
     python scripts/run_pilot_translation.py --limit 3 --languages hi   # quick check
 
@@ -35,7 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--seeds", type=Path, default=Path("data/pilot/pilot_seeds_v0.2-pilot-seeds.jsonl"))
     ap.add_argument("--out", type=Path, default=Path("data/pilot/translations"))
-    ap.add_argument("--languages", nargs="+", default=["hi", "mr", "gu"])
+    ap.add_argument("--languages", nargs="+", default=None,
+                    help="default: every enabled target language in languages.yaml (hi mr gu te)")
     ap.add_argument("--limit", type=int, default=None, help="only the first N seeds")
     ap.add_argument("--no-code-mix", action="store_true", help="skip the code-mixing stage")
     args = ap.parse_args(argv)
@@ -43,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         settings = load_settings()
         seeds_path = settings.project_root / args.seeds
+        if args.languages is None:
+            args.languages = [c for c, lang in settings.languages.languages.items()
+                              if lang.enabled and lang.role == "target"]
         seeds, dataset_version = load_pilot_seeds(seeds_path)
         seeds = seeds[: args.limit]
         t0 = time.perf_counter()

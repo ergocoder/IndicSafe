@@ -55,6 +55,22 @@ languages:
       romanisation support data exists in data/raw/: code-mix measurement and
       romanised style rely on team-provided references and human review.
 
+  te:
+    name: Telugu
+    role: target
+    native_script: Telu
+    romanized_script: Latn
+    enabled: true                # 4th target language (2026-10-08): translation + romanisation + QC
+    code_mix_partner: en         # used only to measure English words in L0 (QC); no code-mixed variants
+    code_mix_levels: [L0]
+    notes: >-
+      Code-mixing is disabled: Telugu case markers and postpositions are
+      suffixes fused to the noun (bankloo, deshaaniki), so swapping a whole
+      word for English drops them. It needs suffix-aware swapping and
+      native-speaker review before L1/L2 are enabled. Distinct script (Telu),
+      so the script check separates it from hi/mr/gu. Dravidian romanisation:
+      no schwa deletion (generator/romanization.py, Telugu path).
+
 # Unicode ranges used by the script detector (inclusive, hex code points).
 scripts:
   Latn:
@@ -66,6 +82,9 @@ scripts:
   Gujr:
     name: Gujarati
     ranges: [[0x0A80, 0x0AFF]]
+  Telu:
+    name: Telugu
+    ranges: [[0x0C00, 0x0C7F]]
   Orya:
     name: Odia
     ranges: [[0x0B00, 0x0B7F]]

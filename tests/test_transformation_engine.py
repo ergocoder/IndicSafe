@@ -440,7 +440,7 @@ def test_registered_factory_receives_config(settings):
         return FakeTranslator(name=name, targets=cfg.target_languages)
 
     p = build_provider(settings, "translation", factories={("translation", "indictrans2"): factory})
-    assert seen == {"name": "indictrans2", "targets": ["hi", "mr", "gu"]}
+    assert seen == {"name": "indictrans2", "targets": ["hi", "mr", "gu", "te"]}
     assert p.info.name == "indictrans2"
 
 

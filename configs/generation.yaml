@@ -75,7 +75,7 @@ translation:
     indictrans2:
       type: local_mt
       enabled: true
-      target_languages: [hi, mr, gu]
+      target_languages: [hi, mr, gu, te]
       model: ai4bharat/indictrans2-en-indic-dist-200M   # gated: accept terms on HF + `hf auth login`
       options:
         # Pinned commit: reproducible output, and the trust_remote_code model files
@@ -106,7 +106,7 @@ transliteration:
     colloquial_roman:
       type: rule_based
       enabled: true
-      target_languages: [hi, mr, gu]
+      target_languages: [hi, mr, gu, te]   # te: own Dravidian rules (ISO 15919 -> ASCII), no schwa deletion
       model: aksharamukha/RomanColloquial
       options:
         schwa_deletion: true      # Aksharamukha RemoveSchwaHindi (Gujarati goes through Devanagari)
@@ -204,7 +204,7 @@ qc:
     # Lingua decides among `candidates`; hi vs mr is decided by function-word
     # markers when at least `min_marker_tokens` markers are present.
     detector: lingua_markers
-    candidates: [en, hi, mr, gu]
+    candidates: [en, hi, mr, gu, te]   # te is told apart by Lingua + script; no markers needed
     min_marker_tokens: 2
     pass_confidence: 0.80
     review_confidence: 0.50

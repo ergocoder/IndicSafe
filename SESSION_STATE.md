@@ -1,6 +1,6 @@
 # IndicSafe — Session State
 
-Last updated: 2026-10-08 · Phase 4+5 code committed (b054355). **Code-mixing fixes after the QC review (POS-aware swapping, verb construction, name spans) and QC additions (parent-based semantic decision, coverage, final-dataset filter, code-mix review sheets, harmful-intent report) are built and unit-tested, but NOT committed and NOT yet run on the pilot** (the user runs the pipeline). The run folder `TRANSFORM_20261008T085851Z_2164a890` was made by the old code-mixer.
+Last updated: 2026-10-08 · Code-mixing fixes and QC additions committed (01dd483); pilot v0.2 transform + QC run committed by the user (e1126dd: 554 variants, 513 pass). **Telugu (te) added as 4th target language (translation + romanisation + QC, no code-mixing): built and unit-tested, NOT committed, NOT run on the pilot** (the user runs the pipeline).
 
 ## Objective
 
@@ -171,6 +171,28 @@ QC on `TRANSFORM_20261008T085851Z_2164a890` exposed "celebrate मनाने",
   - the verb-construction table, the onset check, name spans.
   - `test_spacy_units_match_the_tables` checks the fake tables against real spaCy (skipped if spaCy is missing). `tests/test_qc_pipeline.py` (12) covers the parent-based semantic decision, the final-dataset filter, coverage, the review sheet and the harmful-intent report.
 
+## Telugu as 4th target language (2026-10-08; uncommitted, not yet run)
+
+- **Config:** `languages.yaml` → `te` (Telugu; native_script `Telu` = U+0C00–0C7F; romanized Latn; enabled; `code_mix_partner: en` only so QC can measure English words in L0; `code_mix_levels: [L0]`).
+  - Notes say why code-mixing is off: Telugu case markers are suffixes fused to the noun. It needs suffix-aware swapping and native review first.
+  - `generation.yaml`: te added to the `indictrans2` and `colloquial_roman` target_languages and to `qc.language.candidates`. It is **not** in `code_mixing` target_languages.
+- **Translation:** `FLORES["te"] = "tel_Telu"`. The vendored IndicProcessor already knew tel_Telu. The model writes Devanagari and the processor converts it to Telugu script; a fake-backend unit test checks this, including batching and caching.
+- **Romanisation (romaniser 1.2):** separate Dravidian path; no Devanagari pivot, no schwa deletion, no final-nasal rule. Aksharamukha Telugu → ISO 15919 → `telugu_colloquial`:
+  - jñ → gn; vocalic r → ri;
+  - anusvara → n before a stop or nasal, else m;
+  - ISO c / ch → ch / chh; ś ṣ → sh;
+  - remaining diacritics stripped (long vowels collapse; retroflexes plain);
+  - lowercase. Latin runs pass through.
+  - Examples: "miru ela unnaru?", "nenu pustakam chaduvutunnanu", "krishnudu gnanam gurinchi cheppadu", "bharatadeshamlo e nadi podavainadi?".
+  - The version bump **changes the ids of every romanised variant (hi/mr/gu too) and of every code-mixed variant**, because the code-mixer version embeds the romaniser version. Hindi/Marathi/Gujarati romanised text itself is unchanged; a test checks Hindi.
+- **Language QC:** the script check separates Telu from Deva/Gujr. Lingua identifies Telugu; checked with the real Lingua in a unit test. No Telugu marker words were needed (markers only arbitrate hi vs mr).
+- **Pipeline:**
+  - `run_pilot_translation.py` defaults to every enabled target language in languages.yaml (hi mr gu te).
+  - Code-mixing skips a language the mixer doesn't support, so te gets native + Latn only (2 variants per seed: 1 translation + 1 romanised).
+  - `review_te.csv` is written like the others.
+  - QC: `qc_summary.json` gets `code_mix_scope` (`code_mixed` / `not_code_mixed`); te has no coverage lines and no `review_codemix_te.csv`. Its L0 variants still get the L0 English-word check.
+- **Tests:** 246 pass with `-m "not integration"` (13 new in `tests/test_telugu.py`). Two config tests that pinned the language lists were updated; `FakeTransliterator` accepts Telu. The GPU integration test now also translates te, but it was **not run** this time.
+
 ## Key decisions
 
 - **Raw data stays zipped** in `data/raw/` and is never extracted or modified. All 15 checksums were verified unchanged after the work.
@@ -185,6 +207,7 @@ QC on `TRANSFORM_20261008T085851Z_2164a890` exposed "celebrate मनाने",
   - Its Hindi/Marathi parallel rows are candidate reference translations; whether they are human or machine translations is unknown.
 - **The LID/MLI/MT/NER/POS/TN files are support data only**, never seeds or labels. They are Hindi–English only and share one sentence pool. LID test overlaps LID train (4,120 of 5,000 sentences), so validators must be evaluated on a de-duplicated held-out subset.
 - **MVP languages (decided 2026-10-08):** en (reference) plus **hi**, **mr** and **gu**, each in native script (Deva / Gujr) and Latn, at code-mix levels L1 and L2 with English. That is 16 variants per seed. Native-speaker annotators are confirmed for hi and mr; Gujarati annotators are not yet confirmed.
+- **Telugu added (2026-10-08, user instruction):** te as 4th target language, native Telu + Latn at L0 only. No code-mixing until suffix-aware swapping exists and native reviewers check it. Telugu reviewers: not yet known.
 - **Taxonomy frozen as v1.0** (2026-10-08): 14 categories plus `unassigned`. Any change needs a new `taxonomy_version`.
 - **Translation (decided 2026-10-08):** only through a provider interface. The default is local open-source MT (IndicTrans2 is the first candidate); an LLM adapter is optional and off. No LLM API is hard-coded. Phase 2 evaluates translation on a small pilot before the production model is chosen. Configured in `configs/generation.yaml` → `translation`.
 - **Code-mix measure:** `code_mix_ratio = secondary / (primary + secondary)` language-tagged tokens. CMI is reported too.
@@ -247,7 +270,7 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 
 ## Exact next steps
 
-0. Review and commit the code-mixing fixes and QC additions (`generator/{english_pos,code_mixing,qc_pipeline}.py`, `configs/generation.yaml`, tests). Then rerun `scripts\run_pilot_translation.py` and `scripts\run_qc.py --run <new run>`; check `code_mix_coverage`, `harmful_intent_check.json`, and send `review_codemix_{hi,mr,gu}.csv` with the other review sheets.
+0. Review and commit the Telugu addition. Then run `python -m pytest -m integration` (real IndicTrans2 now also translates te), `scripts\run_pilot_translation.py` (now hi mr gu te) and `scripts\run_qc.py --run <new run>`. Check te LaBSE scores and LID, and find a Telugu reviewer for `review_te.csv`. All romanised and code-mixed ids change with romaniser 1.2.
 1. Review Phase 4/5: `generator/{code_mixing,code_mix_metrics,qc_pipeline,semantic}.py`, the engine / romaniser / language_qc changes, `configs/generation.yaml` (code_mixing, qc), and the run folder `TRANSFORM_20261008T085851Z_2164a890` (`qc_report.jsonl`, `qc_summary.json`).
 2. Commit in PowerShell: `git add .; git commit -m "phase 4 code-mixing, phase 5 qc pipeline, pilot v0.2 run"`. The run's manifest will still say `dirty: true`; rerun both scripts after committing if a clean manifest is wanted.
 3. Team: send the regenerated `review_{hi,mr,gu}.csv` (v0.2 run) to native speakers. They contain the UNSAFE pilot prompts in translation. Gujarati reviewers are still unconfirmed. Consider adding the code-mixed variants to the sheets: naturalness of the swaps has had no human check yet.
@@ -261,7 +284,7 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe scripts\import_seeds.py      # --no-pilot | --manual-csv <csv> | --force
 .\.venv\Scripts\python.exe scripts\import_reviews.py    # review layer + agreement; --build [--force] -> pilot v0.2
-.\.venv\Scripts\python.exe scripts\run_pilot_translation.py   # v0.2 + code-mix; --no-code-mix --languages hi --limit N
+.\.venv\Scripts\python.exe scripts\run_pilot_translation.py   # v0.2, hi mr gu te (+ L1/L2 for hi mr gu); --no-code-mix --languages hi --limit N
 .\.venv\Scripts\python.exe scripts\run_qc.py --run data\pilot\translations\<run_id>   # --no-semantic
 .\.venv\Scripts\python.exe -m pytest                          # -m integration: GPU tests (IndicTrans2, LaBSE)
 ```

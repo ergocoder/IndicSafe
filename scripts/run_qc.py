@@ -51,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     print("top reasons:", dict(list(s["reasons"].items())[:10]))
     for level, c in s["code_mix_coverage"].items():
         print(f"  {c['line']}  (near band edge {c['near_band_edge']}, missed {c['missed']})")
+    if s["code_mix_scope"]["not_code_mixed"]:
+        print("  not code-mixed (no coverage lines):", " ".join(s["code_mix_scope"]["not_code_mixed"]))
     print("final dataset:", s["final_dataset"])
     for k, p in paths.items():
         print(f"  {k:8} {p.relative_to(settings.project_root)}")

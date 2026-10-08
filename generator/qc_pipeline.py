@@ -326,6 +326,16 @@ def code_mix_coverage(records: list[QCRecord], transformations: Mapping[str, Tra
     return out
 
 
+def code_mix_scope(variants: Mapping[str, VariantRecord],
+                   transformations: Mapping[str, TransformationRecord]) -> dict:
+    """Which target languages were code-mixed; the others (e.g. te) have no coverage lines by design."""
+    mixed = sorted({t.parameters["language"] for t in transformations.values()
+                    if t.transformation_type == "code_mixing"})
+    targets = sorted({v.language for v in variants.values()
+                      if v.parent_prompt_id is not None and v.language != variants[v.lineage[0]].language})
+    return {"code_mixed": mixed, "not_code_mixed": [lang for lang in targets if lang not in mixed]}
+
+
 def final_dataset_variants(variants: Mapping[str, VariantRecord], qc_records: Iterable[QCRecord], *,
                            include_review: bool = True) -> list[VariantRecord]:
     """The only way variants may enter a final dataset: QC FAIL is always excluded,
@@ -504,6 +514,7 @@ def run_qc_on_dir(settings: Settings, run_dir: Path, encoder: SentenceEncoder | 
         "finished_at": iso(utc_now()),
         "inputs": {n: sha256_file(p) for n, p in inputs.items()},
         "code_mix_coverage": code_mix_coverage(records, transformations),
+        "code_mix_scope": code_mix_scope(variants, transformations),
         **summarize(records, settings, encoder),
         "config_hashes": settings.config_hashes,
         "outputs": {p.name: sha256_file(p) for p in paths.values()},
