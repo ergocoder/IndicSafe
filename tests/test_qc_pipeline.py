@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 from datetime import datetime, timezone
 
@@ -11,8 +12,13 @@ from generator.code_mixing import build_code_mixer
 from generator.pilot_translation import run_pilot_translation, write_outputs
 from generator.qc_pipeline import (
     char3,
+    CODEMIX_REVIEW_COLUMNS,
     code_mix_check,
+    code_mix_coverage,
+    codemix_review_rows,
     duplicate_checks,
+    final_dataset_variants,
+    harmful_intent_check,
     jaccard,
     run_qc,
     run_qc_on_dir,
@@ -20,7 +26,7 @@ from generator.qc_pipeline import (
 from generator.semantic import SentenceEncoder, cosine
 from generator.transformation_engine import TransformationEngine
 from tests.fakes import TRANSLATIONS, FakeTranslator, FakeTransliterator
-from tests.test_code_mix import HI_L1, ROMAN, WORDS
+from tests.test_code_mix import ANALYZER, HI_L1, ROMAN, WORDS
 from tests.test_language_qc import FakeLID
 from tests.test_transformation_engine import make_seed
 
@@ -41,12 +47,16 @@ class FakeEncoder(SentenceEncoder):
                 for t in texts]
 
 
-@pytest.fixture
-def run(settings):
+def _run(settings, seed=None):
     engine = TransformationEngine(settings, run_id="TRANSFORM_TEST", clock=lambda: FIXED)
     mt = FakeTranslator({**TRANSLATIONS, **WORDS})
-    return run_pilot_translation(settings, [make_seed()], mt, FakeTransliterator(ROMAN), FakeLID(), ["hi"],
-                                 engine=engine, code_mixer=build_code_mixer(settings, mt, None))
+    return run_pilot_translation(settings, [seed or make_seed()], mt, FakeTransliterator(ROMAN), FakeLID(), ["hi"],
+                                 engine=engine, code_mixer=build_code_mixer(settings, mt, None, analyzer=ANALYZER))
+
+
+@pytest.fixture
+def run(settings):
+    return _run(settings)
 
 
 def _by_kind(records):
@@ -83,8 +93,67 @@ def test_semantic_thresholds(settings, run):
     assert recs[("Latn", None, "transliteration")].checks["semantic"].reason == "semantic_drift"  # inherited
     l1 = recs[("Deva", "L1", "code_mixing")]
     assert l1.checks["semantic"].status == "REVIEW" and l1.semantic_similarity == pytest.approx(0.7)
+    assert l1.semantic_similarity_to_parent == pytest.approx(0.7141, abs=1e-3)
+    assert l1.checks["semantic"].details["decision_basis"] == "native_l0_parent"
     no_enc = run_qc(settings, run.engine.variants, run.engine.transformations, run.qc, None)
     assert {r.checks["semantic"].status for r in no_enc} == {"NOT_RUN"}
+
+
+def test_code_mix_semantic_decision_uses_the_native_parent(settings, run):
+    """Seed far from everything: L0 fails on the seed score; code-mix passes on its parent score."""
+    root = next(v for v in run.engine.variants.values() if v.parent_prompt_id is None)
+    recs = _by_kind(run_qc(settings, run.engine.variants, run.engine.transformations, run.qc,
+                           FakeEncoder(drifted={root.prompt})))
+    assert recs[("Deva", None, "translation")].checks["semantic"].reason == "semantic_drift"
+    for key in (("Deva", "L1", "code_mixing"), ("Latn", "L1", "transliteration"), ("Deva", "L2", "code_mixing")):
+        c = recs[key].checks["semantic"]
+        assert c.status == "PASS", key
+        assert (c.details["similarity_to_seed"], c.details["similarity_to_parent"]) == (0.0, 1.0)
+        assert c.details["decision_basis"] == "native_l0_parent"
+
+
+def test_fail_variants_never_reach_the_final_dataset(settings, run):
+    hi = next(v for v in run.engine.variants.values() if v.transformation_type == "translation")
+    recs = run_qc(settings, run.engine.variants, run.engine.transformations, run.qc,
+                  FakeEncoder(drifted={hi.prompt}, half={HI_L1}))
+    status = {r.prompt_id: r.qc_status for r in recs}
+    final = final_dataset_variants(run.engine.variants, recs)
+    assert {v.prompt_id for v in final} == {p for p, st in status.items() if st != "FAIL"}
+    assert hi.prompt_id not in {v.prompt_id for v in final}
+    strict = final_dataset_variants(run.engine.variants, recs, include_review=False)
+    assert {v.prompt_id for v in strict} == {p for p, st in status.items() if st == "PASS"}
+    with pytest.raises(ValueError, match="no QC record"):
+        final_dataset_variants(run.engine.variants, recs[1:])
+
+
+def test_code_mix_coverage_line(settings, run):
+    recs = run_qc(settings, run.engine.variants, run.engine.transformations, run.qc, FakeEncoder())
+    cov = code_mix_coverage(recs, run.engine.transformations)
+    assert cov["L1"]["line"] == "L1 band reached: 1/1" and cov["L2"]["line"] == "L2 band reached: 1/1"
+    assert cov["L2"]["by_language"]["hi"]["missed"] == 0
+
+
+def test_codemix_review_sheet_puts_review_first_and_includes_unsafe(settings):
+    run = _run(settings, make_seed(intended_label="UNSAFE"))
+    recs = run_qc(settings, run.engine.variants, run.engine.transformations, run.qc, FakeEncoder(half={HI_L1}))
+    rows = codemix_review_rows(settings, run.engine.variants, run.engine.transformations, recs, "hi")
+    assert [(r["level"], r["selection"]) for r in rows] == [("L1", "qc_review"), ("L2", "random_sample")]
+    assert all(r["intended_label"] == "UNSAFE" and r["latin_text"] for r in rows)
+    assert rows[0]["swapped"] == "river <- नदी" and rows[0]["qc_status"].startswith("REVIEW")
+    assert set(rows[0]) == set(CODEMIX_REVIEW_COLUMNS) - {"reviewer", "codemix_natural_1to3", "intent_preserved_Y_N", "notes"}
+
+
+def test_harmful_intent_check_lists_lowest_similarity_unsafe_variants(settings):
+    run = _run(settings, make_seed(intended_label="UNSAFE"))
+    recs = run_qc(settings, run.engine.variants, run.engine.transformations, run.qc, FakeEncoder(half={HI_L1}))
+    out = harmful_intent_check(run.engine.variants, recs, 2)
+    assert out["n_candidates"] == 3 and len(out["items"]) == 2          # native L0, L1, L2
+    first = out["items"][0]
+    assert first["variant_text"] == HI_L1 and first["level"] == "L1" and first["romanised_text"] == ROMAN[HI_L1]
+    assert first["similarity_to_seed"] == pytest.approx(0.7) and first["intended_label"] == "UNSAFE"
+    safe = _run(settings)
+    safe_recs = run_qc(settings, safe.engine.variants, safe.engine.transformations, safe.qc, FakeEncoder())
+    assert harmful_intent_check(safe.engine.variants, safe_recs, 10)["items"] == []          # SAFE seed
 
 
 def test_exact_and_near_duplicates(settings, run):
@@ -125,6 +194,13 @@ def test_run_qc_on_dir_writes_report_and_summary(settings, run, project):
     assert s["code_mix_ratio_by_kind"]["hi/Latn/L2"]["mean"] == 0.25
     assert s["semantic_encoder"]["name"] == "fake-encoder" and s["config"]["semantic"]["pass"] == 0.8
     assert set(s["inputs"]) == {"variants.jsonl", "transformations.jsonl", "language_qc.jsonl"}
+    assert s["code_mix_coverage"]["L2"]["line"] == "L2 band reached: 1/1"
+    assert s["final_dataset"]["excluded_fail"] == 0 and s["final_dataset"]["eligible_including_review"] == 7
+    assert set(s["outputs"]) == {"qc_report.jsonl", "review_codemix_hi.csv", "harmful_intent_check.json"}
+    with out["review_codemix_hi"].open(encoding="utf-8-sig", newline="") as fh:
+        sheet = list(csv.DictReader(fh))
+    assert list(sheet[0]) == CODEMIX_REVIEW_COLUMNS and len(sheet) == 2
+    assert json.loads(out["harmful_intent"].read_text(encoding="utf-8"))["items"] == []
 
 
 def test_cosine():

@@ -25,6 +25,10 @@ aksharamukha==2.3
 # Phase 3 — language ID (generator/language_qc.py).
 lingua-language-detector==2.2.0
 
-# Phase 4 (code-mixing) and Phase 5 (QC) add no packages: alignment reuses
-# IndicTrans2, and the semantic check runs LaBSE (setu4993/LaBSE, ungated)
-# through transformers.
+# Phase 4 (code-mixing): English POS tags and name spans for swapping
+# (generator/english_pos.py). spaCy has prebuilt cp313 Windows wheels (no MSVC
+# needed). Without it the code-mixer falls back to a closed-class word list.
+# Alignment reuses IndicTrans2; the Phase 5 semantic check runs LaBSE
+# (setu4993/LaBSE, ungated) through transformers.
+spacy==3.8.16
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

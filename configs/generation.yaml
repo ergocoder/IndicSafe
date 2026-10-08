@@ -4,8 +4,9 @@
 # Phase 2 uses: transformations, transformation_engine, translation,
 # transliteration, paraphrase, and qc.script; Phase 3 adds qc.language; Phase 4
 # adds code_mixing and qc.code_mix; Phase 5 adds qc.duplicate and qc.semantic.
-# qc.quality_score and qc.human_review are still Phase 0 design; nothing reads
-# them yet.
+# qc.human_review.codemix_* and harmful_intent_top_n are read by the QC
+# report; qc.quality_score and the other human_review values are still Phase 0
+# design.
 # Every threshold is an initial value to calibrate on the pilot.
 
 generator_version: "0.1.0"
@@ -130,6 +131,17 @@ code_mixing:
         min_word_chars: 3             # shorter English words are not swapped
         phonetic_min_similarity: 0.70 # romanised target word vs English word: loanword match
         min_stem_chars: 2             # shortest native stem accepted for a prefix match
+        # English POS (spaCy en_core_web_sm; falls back to the closed-class
+        # stopword list below if spaCy is missing). Only these POS are swapped;
+        # COMPOUND = hyphenated word. Multi-word names are one unit.
+        english_tagger: spacy
+        spacy_model: en_core_web_sm
+        swap_pos: [NOUN, PROPN, ADJ, COMPOUND, VERB]
+        swap_verbs: true              # English verb + do-verb construction (verbs below)
+        min_simple_suffix_chars: 2    # a verb's own suffix must be >= 2 code points to be rewritten
+        # Preposition-like verb forms spaCy tags VERB; never swapped.
+        never_swap_en: [regarding, concerning, including, according, considering, following, given,
+                        excluding, involving, pending, barring, versus, via, per, despite]
         # English words never swapped (function words, auxiliaries, pronouns).
         stopwords_en: [a, an, the, and, or, but, if, of, to, in, on, at, by, for, from, with, without,
                        into, onto, about, as, than, then, that, this, these, those, there, here,
@@ -148,6 +160,35 @@ code_mixing:
           hi: []
           mr: [च्या, ची, चा, चे, ला, ना, ने, मध्ये, साठी, कडून, कडे, तून, वर, शी, पासून, बद्दल]
           gu: [ના, ની, નું, નો, નાં, માં, થી, ને, એ, માટે, પર, વિશે]
+        # Native function words / postpositions: never replaced by an English word.
+        function_words:
+          hi: [का, की, के, को, में, से, ने, पर, तक, लिए, बारे, और, या, है, हैं, था, थी, थे, क्या, कैसे, किस, किसे, कौन, यह, वह, हम, मैं, आप, आपकी, आपका, अपने, अपनी, नहीं, भी, ही]
+          mr: [आणि, किंवा, आहे, आहेत, होते, होता, होती, काय, कसे, कसा, कशी, कोण, कोणत्या, कोणते, हे, ते, मी, आम्ही, आपण, तुम्ही, तुमचे, तुमची, नाही, पण, तर, साठी, मध्ये, पासून, बद्दल, याबाबत]
+          gu: [અને, અથવા, છે, હતું, હતી, હતા, શું, કેવી, રીતે, કઈ, કયું, કયા, કોણ, આ, તે, હું, અમે, આપણે, તમે, તમારો, તમારી, નથી, પણ, માટે, માં, થી, પર, અંગે, વિશે, ના, ની, નું, નો, ને]
+        # Verbs: English lemma + do-verb, keeping the native verb's inflection.
+        #   do_forms:    forms of "do"; if one follows the aligned word, only that word is replaced
+        #   light_stems: light verbs after the aligned word, rewritten to the do-verb (जश्न मनाने -> celebrate करने)
+        #   suffixes:    native inflection suffix -> do-verb form with the same inflection
+        # Only common non-finite / habitual / simple-past forms; other verbs are not swapped.
+        verbs:
+          hi:
+            do_forms: [करना, करने, करनी, करते, करता, करती, करें, करेंगे, करेगा, करेगी, करके, कर, किया, किए, किये]
+            light_stems: [मना, दे]
+            suffixes: {ने: करने, ना: करना, नी: करनी, ते: करते, ता: करता, ती: करती, ें: करें,
+                       ेंगे: करेंगे, ेगा: करेगा, ेगी: करेगी, ाया: किया, ाए: किए, ाये: किए}
+          mr:
+            do_forms: [करणे, करण्यासाठी, करण्यात, करण्याचा, करण्याची, करण्याचे, करण्याबाबत, करण्याला,
+                       करून, करत, करतो, करते, करता, करतात, करतील, केला, केले, केली, केलेले, केलेली]
+            light_stems: [दे]
+            suffixes: {णे: करणे, ण्यासाठी: करण्यासाठी, ण्यात: करण्यात, ण्याचा: करण्याचा, ण्याची: करण्याची,
+                       ण्याचे: करण्याचे, ण्याबाबत: करण्याबाबत, ण्याला: करण्याला, ून: करून,
+                       तात: करतात, तील: करतील, तो: करतो}
+          gu:
+            do_forms: [કરવું, કરવા, કરવાની, કરવાનું, કરવાનો, કરવામાં, કરી, કરે, કરો, કર્યું, કર્યો, કર્યા,
+                       કરીને, કરતા, કરતી, કરતો]
+            light_stems: [આપ]
+            suffixes: {વાનું: કરવાનું, વાની: કરવાની, વાનો: કરવાનો, વામાં: કરવામાં, વું: કરવું, વા: કરવા,
+                       ્યું: કર્યું, ્યો: કર્યો, ્યા: કર્યા, ીને: કરીને, ી: કરી, ે: કરે, ો: કરો}
 
 paraphrase:
   default_provider: null              # optional; LLM adapter off by default
@@ -201,3 +242,8 @@ qc:
   human_review:
     pilot_review_fraction: 1.0    # every pilot item is reviewed
     pass_sample_fraction: 0.20    # later: share of auto-PASS items sampled for review
+    # review_codemix_<lang>.csv: all QC REVIEW code-mix items, then a fixed-seed
+    # random sample up to this many rows, with at least this many UNSAFE rows.
+    codemix_sheet_rows: 20
+    codemix_sheet_min_unsafe: 8
+    harmful_intent_top_n: 10      # lowest-similarity UNSAFE/AMBIGUOUS variants listed for a manual check

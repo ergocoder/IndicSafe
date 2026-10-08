@@ -8,6 +8,7 @@ for real MT / transliteration output.
 
 from __future__ import annotations
 
+from generator.english_pos import EnglishAnalyzer, EnUnit
 from generator.paraphrase import ParaphraseProvider
 from generator.transformation_engine import ProviderError, ProviderInfo, ProviderOutput
 from generator.translation import TranslationProvider
@@ -99,3 +100,16 @@ class FakeParaphraser(ParaphraseProvider):
         if (text, variant_index) not in self.table:
             raise ProviderError("no fixture paraphrase")
         return ProviderOutput(self.table[(text, variant_index)])
+
+
+class FakeAnalyzer(EnglishAnalyzer):
+    """English units from a hand-written table: source -> [(indices, words, pos, lemma)]."""
+
+    name, version = "fake_pos", "1"
+
+    def __init__(self, table):
+        self.table = {src: [EnUnit(tuple(i), tuple(w), pos, lemma) for i, w, pos, lemma in units]
+                      for src, units in table.items()}
+
+    def units(self, source, *, stopwords, never_swap, min_chars, swap_pos):
+        return [u for u in self.table.get(source, []) if u.pos in swap_pos]

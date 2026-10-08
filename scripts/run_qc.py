@@ -4,8 +4,9 @@ Usage (from the project root):
     python scripts/run_qc.py --run data/pilot/translations/<run_id>
     python scripts/run_qc.py --run <dir> --no-semantic      # skip the sentence encoder
 
-Writes <run>/qc_report.jsonl (one record per variant: per-check status, reasons)
-and <run>/qc_summary.json (counts). Thresholds and the encoder come from
+Writes <run>/qc_report.jsonl (one record per variant: per-check status, reasons),
+<run>/qc_summary.json (counts, code-mix coverage), review_codemix_<lang>.csv
+(native-speaker sheets) and harmful_intent_check.json. Thresholds and the encoder come from
 configs/generation.yaml → qc.
 """
 
@@ -48,6 +49,9 @@ def main(argv: list[str] | None = None) -> int:
     for kind, c in s["qc_status_by_kind"].items():
         print(f"  {kind:16} {c}")
     print("top reasons:", dict(list(s["reasons"].items())[:10]))
+    for level, c in s["code_mix_coverage"].items():
+        print(f"  {c['line']}  (near band edge {c['near_band_edge']}, missed {c['missed']})")
+    print("final dataset:", s["final_dataset"])
     for k, p in paths.items():
         print(f"  {k:8} {p.relative_to(settings.project_root)}")
     return 0

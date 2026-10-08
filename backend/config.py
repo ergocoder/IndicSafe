@@ -353,6 +353,14 @@ class SemanticQCConfig(BaseModel):
         return self
 
 
+class HumanReviewQCConfig(_Strict):
+    pilot_review_fraction: float = Field(ge=0.0, le=1.0)
+    pass_sample_fraction: float = Field(ge=0.0, le=1.0)
+    codemix_sheet_rows: int = Field(ge=1)
+    codemix_sheet_min_unsafe: int = Field(ge=0)
+    harmful_intent_top_n: int = Field(ge=1)
+
+
 class QCConfig(BaseModel):
     # extra="allow": only the parts used so far are typed; the remaining QC
     # design blocks are validated when their phase is implemented.
@@ -363,6 +371,7 @@ class QCConfig(BaseModel):
     code_mix: CodeMixQCConfig
     duplicate: DuplicateQCConfig
     semantic: SemanticQCConfig
+    human_review: HumanReviewQCConfig
 
 
 class GenerationConfig(BaseModel):

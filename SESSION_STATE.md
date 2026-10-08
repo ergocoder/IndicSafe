@@ -1,6 +1,6 @@
 # IndicSafe — Session State
 
-Last updated: 2026-10-08 · **Phase 4 (code-mixing) and Phase 5 (QC pipeline) built, run on all 30 v0.2 seeds, awaiting review (not committed)** · pilot translations rerun on v0.2 (replaces the v0.1 run)
+Last updated: 2026-10-08 · Phase 4+5 code committed (b054355). **Code-mixing fixes after the QC review (POS-aware swapping, verb construction, name spans) and QC additions (parent-based semantic decision, coverage, final-dataset filter, code-mix review sheets, harmful-intent report) are built and unit-tested, but NOT committed and NOT yet run on the pilot** (the user runs the pipeline). The run folder `TRANSFORM_20261008T085851Z_2164a890` was made by the old code-mixer.
 
 ## Objective
 
@@ -135,6 +135,42 @@ Full notes: `docs/phase2b_3_notes.md`.
   - Review CSVs `review_{hi,mr,gu}.csv` regenerated (same format as before; native + Latn L0 only).
 - **Tests:** 215 pass + 2 GPU integration tests (IndicTrans2, LaBSE) that pass here. New: `tests/test_code_mix.py` (25), `tests/test_qc_pipeline.py` (7), using fakes; no model needed.
 
+## Code-mixing fixes and QC additions (2026-10-08, after the Phase 4+5 QC review; uncommitted, not yet run)
+
+QC on `TRANSFORM_20261008T085851Z_2164a890` exposed "celebrate मनाने", "regarding बारे में", "serve આપી", "Sabha की" / "Lok चे", and gu "date" for માટે (phonetic false match).
+
+- **English POS** (`generator/english_pos.py`): spaCy 3.8.16 + `en_core_web_sm` 3.8.0 installed from prebuilt cp313 wheels (no MSVC needed; added to requirements.txt).
+  - Only NOUN, PROPN, ADJ, hyphenated compounds (`COMPOUND`) and VERB are swapped; function words never are.
+  - `never_swap_en` lists preposition-like verb forms that spaCy tags VERB (regarding, including, …).
+  - Fallback if spaCy is missing: `ClosedClassAnalyzer` (stopword list, no POS, so verbs are swapped like nouns). The tagger name and version are part of the code-mixer provider version (`2.0+…+pos:spacy-3.8.16+en_core_web_sm-3.8.0+verbs1…`), so all code-mix ids change.
+- **Verbs:** English lemma + do-verb, keeping the native inflection through suffix tables in `generation.yaml → code_mixing…verbs.<lang>` (`do_forms`, `light_stems`, `suffixes`). Three constructions:
+  - the next word is already a do-verb (ઉજવણી કરવા, आयोजित किया): replace only the aligned word;
+  - the next word is a light verb (मना, दे, આપ) + suffix: replace both (जश्न मनाने → "celebrate करने", સેવા આપી → "serve કરી");
+  - the word itself is stem + a suffix of ≥ 2 code points (चोरण्यासाठी → "steal करण्यासाठी").
+  - Otherwise the verb is not swapped. Only common non-finite / habitual / simple-past forms are covered. `swap_verbs: false` turns verbs off.
+- **Native function words** (`function_words` per language: postpositions, pronouns, copulas) are never replaced. Phonetic matches now need the same onset sound class (માટે "mate" ≠ "date").
+- **Name spans:** consecutive PROPN tokens, or PROPN/NOUN tokens in one spaCy entity, form one unit: swapped whole or not at all.
+  - One native compound built from the parts' heads: लोक+सभा → लोकसभा / लोकसभेचे / લોકસભાની → "Lok Sabha", "Lok Sabha चे", "Lok Sabha ની".
+  - Or consecutive native words, one per part ("Pro Kabaddi League"; parts may match phonetically from 3 letters).
+  - The whole span is also sent to IndicTrans2.
+- **Offline replay** on the old run's L0 translations, using the word translations recorded in its metadata (no MT model; span translations missing, so a slight underestimate):
+  - L2 band reached about 75/90, +6 near the edge, 9 missed. With `swap_verbs: false`, 18 L2 misses, so the verb construction stays on.
+  - L1: 8/90 now miss. All 8 are short prompts whose only swappable unit is a 2–3-word name (Lok Sabha, Pro Kabaddi League, Muhammad bin Tughluq), which overshoots L1 when swapped whole. This is the all-or-none rule working as asked.
+  - Real numbers come from the next pipeline run.
+- **Semantic (QC 1.1):** code-mixed variants store `similarity_to_seed` and `similarity_to_parent` (vs the native L0 parent). The parent score decides REVIEW/FAIL (`decision_basis: native_l0_parent`). Thresholds unchanged. `QCRecord.semantic_similarity_to_parent` added. `semantic.py` itself was not changed.
+- **FAIL handling:** `qc_pipeline.final_dataset_variants(variants, qc_records, include_review=True)` is the single filter for any export. It never returns FAIL, returns REVIEW only when `include_review=True`, and raises if a variant has no QC record. No exporter exists yet.
+  - `qc_summary.json` gets `final_dataset` counts and `code_mix_coverage`: per level, a `line` such as "L2 band reached: n/N", plus near-edge, missed and per-language counts.
+- **Review sheets:** `review_codemix_{hi,mr,gu}.csv` are written by `scripts/run_qc.py`, one row per native L1/L2 variant plus its romanised child (FAIL variants left out).
+  - Rows: every QC REVIEW item first, then a fixed-seed random sample up to 20 rows, with UNSAFE rows taken first until 8 are on the sheet (`qc.human_review.codemix_sheet_rows / codemix_sheet_min_unsafe`).
+  - Columns: source English, L0 native, native, romanised, ratio, CMI, swapped words, QC status/reasons; reviewer columns `codemix_natural_1to3`, `intent_preserved_Y_N`, `notes`.
+- **Harmful-intent check:** `harmful_intent_check.json`. The 10 native-script variants of UNSAFE/AMBIGUOUS seeds with the lowest similarity to the English seed, with seed text, variant text, romanised text, both scores and QC status (`harmful_intent_top_n`).
+- **Tests:** 235 pass (including the 2 GPU integration tests). `tests/test_code_mix.py` (40) uses a `FakeAnalyzer` whose tables are spaCy's real output, plus real pilot L0 texts and word translations:
+  - Oktoberfest hi has no "celebrate मनाने" and has "celebrate करने के लिए";
+  - S-NHQA-39 never swaps "regarding", even through a leaky tagger;
+  - Lok Sabha for hi/mr/gu;
+  - the verb-construction table, the onset check, name spans.
+  - `test_spacy_units_match_the_tables` checks the fake tables against real spaCy (skipped if spaCy is missing). `tests/test_qc_pipeline.py` (12) covers the parent-based semantic decision, the final-dataset filter, coverage, the review sheet and the harmful-intent report.
+
 ## Key decisions
 
 - **Raw data stays zipped** in `data/raw/` and is never extracted or modified. All 15 checksums were verified unchanged after the work.
@@ -183,7 +219,7 @@ Full notes: `docs/phase2b_3_notes.md`.
 - **Manually written code-mixed seeds:** not now (team decision); possibly later.
 - **Code-mixing limits:**
   - Alignment uses isolated-word MT, so words the MT renders differently in context are missed. A prefix match can hit a wrong inflection.
-  - There is no POS tagger, so verbs and adjectives are swapped as readily as nouns. Some outputs are odd ("removal करवा", "celebrate मनाने", "greatest बड़ी").
+  - POS comes from spaCy on the English seed only. A spaCy mis-tag ("stage" as NOUN in "Munich first stage Oktoberfest") passes through. The verb tables cover common forms only; finite and irregular verbs are not swapped. A short prompt whose only unit is a long name cannot reach L1.
   - Inflection is dropped with the swapped word.
   - Native-script measurement cannot tell names from code-mixed words (no NER). Latn measurement is inherited from the native parent; there is no independent romanised-text tagger, because the data has no romanised hi/mr/gu with word tags.
   - Naturalness has not been human-reviewed.
@@ -211,6 +247,7 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 
 ## Exact next steps
 
+0. Review and commit the code-mixing fixes and QC additions (`generator/{english_pos,code_mixing,qc_pipeline}.py`, `configs/generation.yaml`, tests). Then rerun `scripts\run_pilot_translation.py` and `scripts\run_qc.py --run <new run>`; check `code_mix_coverage`, `harmful_intent_check.json`, and send `review_codemix_{hi,mr,gu}.csv` with the other review sheets.
 1. Review Phase 4/5: `generator/{code_mixing,code_mix_metrics,qc_pipeline,semantic}.py`, the engine / romaniser / language_qc changes, `configs/generation.yaml` (code_mixing, qc), and the run folder `TRANSFORM_20261008T085851Z_2164a890` (`qc_report.jsonl`, `qc_summary.json`).
 2. Commit in PowerShell: `git add .; git commit -m "phase 4 code-mixing, phase 5 qc pipeline, pilot v0.2 run"`. The run's manifest will still say `dirty: true`; rerun both scripts after committing if a clean manifest is wanted.
 3. Team: send the regenerated `review_{hi,mr,gu}.csv` (v0.2 run) to native speakers. They contain the UNSAFE pilot prompts in translation. Gujarati reviewers are still unconfirmed. Consider adding the code-mixed variants to the sheets: naturalness of the swaps has had no human check yet.

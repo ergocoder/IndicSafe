@@ -27,19 +27,32 @@ with a reason code and details. Thresholds come from generation.yaml → qc.
                      transformation_engine.length_ratio -> REVIEW
     semantic         cosine(English seed, variant) with the sentence encoder
                      (generator/semantic.py). >= pass is PASS, >= review is
-                     REVIEW, otherwise FAIL semantic_drift. Romanised variants
-                     inherit their native parent's score.
+                     REVIEW, otherwise FAIL semantic_drift. Code-mixed variants
+                     are also scored against their native L0 parent and that
+                     score decides (English words shared with the seed inflate
+                     the seed score); both are in the details. Romanised
+                     variants inherit their native parent's scores.
 
 qc_status = FAIL if any check FAILs, else REVIEW if any REVIEWs, else PASS.
-The QC never edits a variant and never relabels a level.
+The QC never edits a variant and never relabels a level. FAIL variants never
+enter a final dataset: `final_dataset_variants` is the one filter any export
+must use.
+
+Also written by `run_qc_on_dir`:
+    review_codemix_<lang>.csv   native-speaker sheet for L1/L2 code-mix
+                                (QC REVIEW items first, then a fixed-seed sample)
+    harmful_intent_check.json   lowest-similarity UNSAFE / AMBIGUOUS variants
 """
 
 from __future__ import annotations
 
+import csv
+import io
 import json
+import random
 import statistics
 from collections import Counter, defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Literal
 
@@ -59,7 +72,7 @@ from generator.transformation_engine import (
     measure_code_mix,
 )
 
-QC_VERSION = "1.0"
+QC_VERSION = "1.1"
 Status = Literal["PASS", "REVIEW", "FAIL", "NOT_APPLICABLE", "NOT_RUN"]
 _OWN_CHECK_HOOKS = {"expected_script", "length_ratio", "code_mix_band"}  # reported by their own check
 
@@ -90,7 +103,8 @@ class QCRecord(BaseModel):
     checks: dict[str, Check]
     code_mix_ratio: float | None = None
     cmi: float | None = None
-    semantic_similarity: float | None = None
+    semantic_similarity: float | None = None             # vs the English seed
+    semantic_similarity_to_parent: float | None = None   # code-mix: vs the native L0 parent (decides)
     qc_status: Literal["PASS", "REVIEW", "FAIL"]
     reasons: list[str] = []
 
@@ -226,8 +240,10 @@ def semantic_check(settings: Settings, v: VariantRecord, scores: dict[str, dict]
     if s is None:
         return Check(status="NOT_APPLICABLE", reason="no_native_parent_score")
     cfg = settings.generation.qc.semantic
-    sim = s["similarity_to_seed"]
-    details = {**s, "pass": cfg.pass_, "review": cfg.review}
+    use_parent = v.code_mix_level is not None and s.get("similarity_to_parent") is not None
+    sim = s["similarity_to_parent"] if use_parent else s["similarity_to_seed"]
+    details = {**s, "decision_basis": "native_l0_parent" if use_parent else "english_seed",
+               "pass": cfg.pass_, "review": cfg.review}
     if sim >= cfg.pass_:
         return Check(status="PASS", details=details)
     if sim >= cfg.review:
@@ -267,6 +283,7 @@ def run_qc(settings: Settings, variants: Mapping[str, VariantRecord],
             code_mix_level=v.code_mix_level, intended_label=v.intended_label, checks=checks,
             code_mix_ratio=cm.get("code_mix_ratio"), cmi=cm.get("cmi"),
             semantic_similarity=checks["semantic"].details.get("similarity_to_seed"),
+            semantic_similarity_to_parent=checks["semantic"].details.get("similarity_to_parent"),
             qc_status=overall, reasons=reasons,
         ))
     return out
@@ -283,11 +300,50 @@ def _kind(r: QCRecord) -> str:
     return f"{r.language}/{r.script}/{r.code_mix_level or 'L0'}"
 
 
+def code_mix_coverage(records: list[QCRecord], transformations: Mapping[str, TransformationRecord]) -> dict:
+    """Per level (and language): code-mixing attempts vs native variants inside their band."""
+    by_out = {r.prompt_id: r for r in records}
+    cells: dict[tuple[str, str], Counter] = defaultdict(Counter)
+    for t in transformations.values():
+        if t.transformation_type != "code_mixing":
+            continue
+        level, lang = t.parameters.get("level"), t.parameters.get("language")
+        r = by_out.get(t.output_prompt_id or "")
+        status = r.checks["code_mix"].status if r else "ERROR"
+        for key in ((level, "all"), (level, lang)):
+            c = cells[key]
+            c["attempted"] += 1
+            c["band_reached"] += status == "PASS"
+            c["near_band_edge"] += status == "REVIEW"
+            c["missed"] += status not in ("PASS", "REVIEW")
+    out: dict = {}
+    for (level, lang), c in sorted(cells.items()):
+        entry = {**c, "line": f"{level} band reached: {c['band_reached']}/{c['attempted']}"}
+        if lang == "all":
+            out.setdefault(level, {}).update(entry)
+        else:
+            out.setdefault(level, {}).setdefault("by_language", {})[lang] = entry
+    return out
+
+
+def final_dataset_variants(variants: Mapping[str, VariantRecord], qc_records: Iterable[QCRecord], *,
+                           include_review: bool = True) -> list[VariantRecord]:
+    """The only way variants may enter a final dataset: QC FAIL is always excluded,
+    REVIEW only when include_review is False. Every variant must have a QC record."""
+    qc = {r.prompt_id: r for r in qc_records}
+    missing = sorted(set(variants) - set(qc))
+    if missing:
+        raise ValueError(f"{len(missing)} variant(s) have no QC record, e.g. {missing[:3]}")
+    allowed = {"PASS", "REVIEW"} if include_review else {"PASS"}
+    return [v for pid, v in sorted(variants.items()) if qc[pid].qc_status in allowed]
+
+
 def summarize(records: list[QCRecord], settings: Settings, encoder: SentenceEncoder | None) -> dict:
     by_kind: dict[str, Counter] = defaultdict(Counter)
     ratios: dict[str, list[float]] = defaultdict(list)
     cmis: dict[str, list[float]] = defaultdict(list)
     sims: dict[str, list[float]] = defaultdict(list)
+    psims: dict[str, list[float]] = defaultdict(list)
     for r in records:
         by_kind[_kind(r)][r.qc_status] += 1
         if r.code_mix_ratio is not None:
@@ -295,6 +351,8 @@ def summarize(records: list[QCRecord], settings: Settings, encoder: SentenceEnco
             cmis[_kind(r)].append(r.cmi)
         if r.semantic_similarity is not None and r.checks["semantic"].details.get("method") == "encoded":
             sims[_kind(r)].append(r.semantic_similarity)
+            if r.semantic_similarity_to_parent is not None:
+                psims[_kind(r)].append(r.semantic_similarity_to_parent)
     qc = settings.generation.qc
     return {
         "qc_version": QC_VERSION,
@@ -307,7 +365,14 @@ def summarize(records: list[QCRecord], settings: Settings, encoder: SentenceEnco
         "code_mix_ratio_by_kind": {k: _stats(v) for k, v in sorted(ratios.items())},
         "cmi_by_kind": {k: _stats(v) for k, v in sorted(cmis.items())},
         "semantic_similarity_by_kind": {k: _stats(v) for k, v in sorted(sims.items())},
+        "semantic_similarity_to_parent_by_kind": {k: _stats(v) for k, v in sorted(psims.items())},
         "intended_label_counts": dict(sorted(Counter(r.intended_label for r in records).items())),
+        "final_dataset": {
+            "eligible_including_review": sum(r.qc_status != "FAIL" for r in records),
+            "eligible_pass_only": sum(r.qc_status == "PASS" for r in records),
+            "excluded_fail": sum(r.qc_status == "FAIL" for r in records),
+            "rule": "QC FAIL variants are never exported (qc_pipeline.final_dataset_variants)",
+        },
         "config": {
             "duplicate": qc.duplicate.model_dump(), "code_mix": qc.code_mix.model_dump(),
             "bands": {k: list(b) for k, b in cmm.level_bands(settings).items()},
@@ -317,6 +382,91 @@ def summarize(records: list[QCRecord], settings: Settings, encoder: SentenceEnco
         },
         "semantic_encoder": ({"name": encoder.name, "version": encoder.version,
                               **getattr(encoder, "versions", {})} if encoder else None),
+    }
+
+
+# ------------------------------------------------------ review sheets / reports
+
+CODEMIX_REVIEW_COLUMNS = [
+    "review_id", "selection", "seed_id", "language", "level", "intended_label", "category",
+    "source_prompt_en", "l0_native_text", "native_prompt_id", "native_text", "latin_prompt_id", "latin_text",
+    "code_mix_ratio", "cmi", "swapped", "qc_status", "qc_reasons",
+    # filled by the reviewer
+    "reviewer", "codemix_natural_1to3", "intent_preserved_Y_N", "notes",
+]
+
+
+def codemix_review_rows(settings: Settings, variants: Mapping[str, VariantRecord],
+                        transformations: Mapping[str, TransformationRecord],
+                        records: list[QCRecord], language: str) -> list[dict]:
+    """One row per native L1/L2 variant (with its romanised child); FAIL variants are left out.
+
+    Order: every item with a QC REVIEW (native or romanised) first, then a random sample
+    (fixed seed: generation.random_seed + language) up to codemix_sheet_rows, taking UNSAFE
+    rows first until codemix_sheet_min_unsafe of them are on the sheet."""
+    cfg = settings.generation.qc.human_review
+    qc = {r.prompt_id: r for r in records}
+    latin_of = {v.parent_prompt_id: v for v in variants.values()
+                if v.is_transliterated and v.code_mix_level is not None}
+    rows = []
+    for v in sorted(variants.values(), key=lambda v: (v.seed_id, v.code_mix_level or "")):
+        if v.language != language or v.transformation_type != "code_mixing" or qc[v.prompt_id].qc_status == "FAIL":
+            continue
+        lat = latin_of.get(v.prompt_id)
+        if lat is not None and qc[lat.prompt_id].qc_status == "FAIL":
+            lat = None
+        statuses = [qc[v.prompt_id].qc_status] + ([qc[lat.prompt_id].qc_status] if lat else [])
+        meta = transformations[v.transformation_id].provider_metadata
+        rows.append({
+            "review_id": f"{v.seed_id}:{language}:{v.code_mix_level}", "seed_id": v.seed_id,
+            "language": language, "level": v.code_mix_level, "intended_label": v.intended_label,
+            "category": v.category, "source_prompt_en": variants[v.lineage[0]].prompt,
+            "l0_native_text": variants[v.parent_prompt_id].prompt,
+            "native_prompt_id": v.prompt_id, "native_text": v.prompt,
+            "latin_prompt_id": lat.prompt_id if lat else "", "latin_text": lat.prompt if lat else "",
+            "code_mix_ratio": qc[v.prompt_id].code_mix_ratio, "cmi": qc[v.prompt_id].cmi,
+            "swapped": "; ".join(f"{s['en']} <- {s['native']}" for s in meta.get("swapped", [])),
+            "qc_status": "/".join(statuses),
+            "qc_reasons": "; ".join(dict.fromkeys(qc[v.prompt_id].reasons + (qc[lat.prompt_id].reasons if lat else []))),
+            "_review": "REVIEW" in statuses,
+        })
+    picked = [r for r in rows if r["_review"]]
+    for r in picked:
+        r["selection"] = "qc_review"
+    rest = [r for r in rows if not r["_review"]]
+    rng = random.Random(f"{settings.generation.random_seed}:{language}")
+    rng.shuffle(rest)
+    need = max(0, cfg.codemix_sheet_rows - len(picked))
+    n_unsafe = sum(r["intended_label"] == "UNSAFE" for r in picked)
+    unsafe = [r for r in rest if r["intended_label"] == "UNSAFE"][: max(0, min(need, cfg.codemix_sheet_min_unsafe - n_unsafe))]
+    others = [r for r in rest if r not in unsafe][: need - len(unsafe)]
+    for r in unsafe + others:
+        r["selection"] = "random_sample"
+    out = picked + sorted(unsafe + others, key=lambda r: r["review_id"])
+    for r in out:
+        del r["_review"]
+    return out
+
+
+def harmful_intent_check(variants: Mapping[str, VariantRecord], records: list[QCRecord], top_n: int) -> dict:
+    """The top_n native-script variants of UNSAFE / AMBIGUOUS seeds with the lowest similarity to the
+    English seed: read them to see whether translation or code-mixing softened the request."""
+    scored = [r for r in records
+              if r.intended_label in ("UNSAFE", "AMBIGUOUS") and r.semantic_similarity is not None
+              and r.checks["semantic"].details.get("method") == "encoded"]
+    scored.sort(key=lambda r: (r.semantic_similarity, r.prompt_id))
+    latin_of = {v.parent_prompt_id: v.prompt for v in variants.values() if v.is_transliterated}
+    return {
+        "purpose": "Manual check: is the harmful (or ambiguous) request still intact in these variants?",
+        "selection": f"{top_n} lowest similarity_to_seed among native-script variants of UNSAFE/AMBIGUOUS seeds",
+        "n_candidates": len(scored),
+        "items": [{
+            "prompt_id": r.prompt_id, "seed_id": r.seed_id, "intended_label": r.intended_label,
+            "language": r.language, "script": r.script, "level": r.code_mix_level or "L0",
+            "similarity_to_seed": r.semantic_similarity, "similarity_to_parent": r.semantic_similarity_to_parent,
+            "qc_status": r.qc_status, "seed_text": variants[r.lineage[0]].prompt,
+            "variant_text": variants[r.prompt_id].prompt, "romanised_text": latin_of.get(r.prompt_id),
+        } for r in scored[:top_n]],
     }
 
 
@@ -330,20 +480,35 @@ def run_qc_on_dir(settings: Settings, run_dir: Path, encoder: SentenceEncoder | 
     started = utc_now()
     inputs = {n: run_dir / n for n in ("variants.jsonl", "transformations.jsonl", "language_qc.jsonl")}
     variants = load_variants_jsonl(inputs["variants.jsonl"])
-    records = run_qc(settings, variants, load_transformations_jsonl(inputs["transformations.jsonl"]),
-                     load_language_qc(inputs["language_qc.jsonl"]), encoder)
+    transformations = load_transformations_jsonl(inputs["transformations.jsonl"])
+    records = run_qc(settings, variants, transformations, load_language_qc(inputs["language_qc.jsonl"]), encoder)
+    paths: dict[str, Path] = {}
     report = run_dir / "qc_report.jsonl"
     _atomic_write(report, "".join(json.dumps(r.model_dump(mode="json"), ensure_ascii=False) + "\n"
                                   for r in records))
+    paths["report"] = report
+    for lang in sorted({v.language for v in variants.values() if v.code_mix_level is not None}):
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=CODEMIX_REVIEW_COLUMNS, lineterminator="\n", restval="")
+        w.writeheader()
+        w.writerows(codemix_review_rows(settings, variants, transformations, records, lang))
+        p = run_dir / f"review_codemix_{lang}.csv"
+        _atomic_write(p, buf.getvalue(), encoding="utf-8-sig")
+        paths[f"review_codemix_{lang}"] = p
+    harmful = run_dir / "harmful_intent_check.json"
+    _write_json(harmful, harmful_intent_check(variants, records, settings.generation.qc.human_review.harmful_intent_top_n))
+    paths["harmful_intent"] = harmful
     summary = {
         "run_dir": run_dir.name,
         "started_at": iso(started),
         "finished_at": iso(utc_now()),
         "inputs": {n: sha256_file(p) for n, p in inputs.items()},
+        "code_mix_coverage": code_mix_coverage(records, transformations),
         **summarize(records, settings, encoder),
         "config_hashes": settings.config_hashes,
-        "outputs": {report.name: sha256_file(report)},
+        "outputs": {p.name: sha256_file(p) for p in paths.values()},
     }
     sp = run_dir / "qc_summary.json"
     _write_json(sp, summary)
-    return {"report": report, "summary": sp}
+    paths["summary"] = sp
+    return paths
