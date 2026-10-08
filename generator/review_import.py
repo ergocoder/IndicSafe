@@ -28,7 +28,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.config import Settings, resolve_inside
-from generator.provenance import build_run_manifest, iso, new_run_id, sha256_file, utc_now
+from generator.provenance import build_run_manifest, git_state, iso, new_run_id, sha256_file, utc_now
 from generator.schemas import SeedRecord
 
 KEY_COLUMNS = ("seed_id", "content_hash")
@@ -497,6 +497,9 @@ def build_reviewed_pilot(result: ReviewImport, settings: Settings, *, force: boo
                                 f"{len(problems)} problem(s)", problems)
     cfg = result.config
     started = utc_now()
+    # Git state before any output is written: the outputs are tracked files, so
+    # checking afterwards would report the build's own output as uncommitted.
+    git_before = git_state(settings.project_root)
     ws_sha = result.inputs[cfg.worksheet]
     records = []
     for r in result.layer:
@@ -573,5 +576,6 @@ def build_reviewed_pilot(result: ReviewImport, settings: Settings, *, force: boo
             "outputs": {p.name: sha256_file(p) for p in (paths["jsonl"], paths["csv"])},
         },
     )
+    manifest["git"] = git_before
     _write(paths["manifest"], json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     return paths
