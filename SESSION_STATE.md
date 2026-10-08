@@ -1,6 +1,6 @@
 # IndicSafe — Session State
 
-Last updated: 2026-10-08 · Pilot review layer committed (320c4dc). **Phase 2b + 3 (real adapters, language/script layer, preliminary pilot translation run) implemented, not committed, awaiting review** · adjudication still pending on the team side · next: native-speaker review of the pilot translations, then Phase 4
+Last updated: 2026-10-08 · Phase 2b + 3 committed (b6822ba). Pilot adjudication done; **pilot v0.2 built and committed** · next: rerun pilot translations on v0.2, native-speaker review of the pilot translations, then Phase 4
 
 ## Objective
 
@@ -59,13 +59,13 @@ Build a reproducible, provenance-rich dataset generator for an Indian multilingu
   - Label: 23/30 = 76.67 %, Cohen's κ = 0.584. Category (27 seeds where both cells resolved): 25/27, κ = 0.903.
   - Flags: S-NHQA-250 swasthik multiple categories; S-NHQA-253 and S-DFH-307 bhargavi blank category; typo-mapped: S-NHQA-6 (swasthik), S-DFH-1281 (both).
   - 8 seeds need adjudication (7 label, 1 category-only: S-DFH-307). **The worksheet matches exactly:** same 8 seeds, same `issue`, labels, categories, notes, prompts and source labels.
-- **`--build`** writes `pilot_seeds_v0.2-pilot-seeds.{jsonl,csv,manifest.json}` only when every worksheet row has `adjudicated_label` (a valid label), `adjudicated_category` (an exact category_id), `adjudicated_by` and `rationale`, and the worksheet still matches the review layer. Otherwise it exits 2 and lists what is missing. It currently refuses: all 8 rows are empty.
+- **`--build`** writes `pilot_seeds_v0.2-pilot-seeds.{jsonl,csv,manifest.json}` only when every worksheet row has `adjudicated_label` (a valid label), `adjudicated_category` (an exact category_id), `adjudicated_by` and `rationale`, and the worksheet still matches the review layer. Otherwise it exits 2 and lists what is missing. **Built 2026-10-08:** `data/pilot/pilot_seeds_v0.2-pilot-seeds.{jsonl,csv,manifest.json}`, 30 seeds: 22 `human_agreed` + 8 `human_adjudicated`; final labels UNSAFE 16 / SAFE 12 / AMBIGUOUS 2. Adjudicated by bhargavi on all 8 rows (one of the two annotators, not a third person as the draft rules propose). An earlier build had cut three rationales at an unquoted comma; it was deleted, the importer now rejects rows with cells beyond the header, and Claude quoted those three cells at the user's request (text unchanged). Rebuilt with `--build --force` after committing the importer fix, so the manifest records a clean git state. `--build` now writes the v0.2 manifest before rewriting the tracked review report; otherwise the report's new timestamp would mark the build dirty.
   - Agreed seeds (same label and same resolved category) take the shared values (`label_status: human_agreed`). Worksheet seeds take the adjudicated values (`human_adjudicated`). `category_status: human_assigned`, and `intended_label` stays as the provisional history.
   - Each record gets `dataset_version`, `parent_dataset_version` and a `review` block: both annotations (raw + mapped), pre-review category/label, resolution, and adjudication (by, rationale, worksheet sha256).
   - v0.1 is only read. The build refuses to overwrite an existing v0.2 unless `--force` is given.
   - `seed_version` is unchanged, because the prompt text did not change and variant ids depend on the content.
 - **Not done (by instruction):** no adjudications filled and no `final_label` set by Claude; no new worksheet.
-- **Tests:** 155 pass (15 new, in `tests/test_review_import.py`, run on temp copies of the real files).
+- **Tests:** 16 in `tests/test_review_import.py`, run on temp copies of the real files with the worksheet's adjudication columns blanked, so they don't depend on the team's edits. Full suite: 182 pass.
 
 ## Implemented (Phase 2b + 3 — real adapters, language/script layer)
 
@@ -158,7 +158,7 @@ Full notes: `docs/phase2b_3_notes.md`.
 |---|---|---|
 | 1 | Seed Manager + provenance | **Done**; all 9 guide-§7 checks re-verified on 2026-10-08 |
 | 2 | Transformation Engine: interface, translation adapter (IndicTrans2 default, optional LLM), paraphrase and transliteration interfaces, `parent_prompt_id`/`seed_id` lineage, validation hooks | **Done, awaiting review** (interfaces only; real IndicTrans2 / transliteration adapters still to add) |
-| 2a | Pilot review layer: double-annotation import, agreement, adjudication → v0.2 | **Done, awaiting review**; team must fill the worksheet, then `--build` |
+| 2a | Pilot review layer: double-annotation import, agreement, adjudication → v0.2 | **Done**; pilot v0.2 built (8 adjudicated) |
 | 2b | Real adapters: IndicTrans2 translation + chosen romanisation method; pilot translation evaluation | **Done, awaiting review**; native-speaker review of the CSVs pending |
 | 3 | Language/script layer | **Done, awaiting review** (script check + Lingua/marker LID, QC records) |
 | 4 | Code-mixing engine | |
@@ -177,7 +177,7 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 1. Review Phase 2b/3 code and outputs: `generator/{indictrans2,romanization,language_qc,pilot_translation,providers}.py`, `generator/vendor/`, `docs/phase2b_3_notes.md`, the run folder under `data/pilot/translations/`.
 2. Commit in PowerShell: `git add .; git commit -m "phase 2b+3 adapters, language qc, preliminary pilot translations"`.
 3. Team: send `review_hi.csv`, `review_mr.csv` and `review_gu.csv` to native speakers. The sheets contain the UNSAFE pilot prompts in translation; reviewers should know that. Gujarati reviewers are still unconfirmed.
-4. Team: adjudicate the v0.1 worksheet, run `scripts\import_reviews.py --build`, then rerun `scripts\run_pilot_translation.py --seeds data/pilot/pilot_seeds_v0.2-pilot-seeds.jsonl`. Variant ids for unchanged seeds stay the same.
+4. Rerun `scripts\run_pilot_translation.py --seeds data/pilot/pilot_seeds_v0.2-pilot-seeds.jsonl`. Variant ids for unchanged seeds stay the same.
 5. Use the review results to calibrate the QC thresholds and markers and to confirm IndicTrans2 as the production model.
 6. Next phase (new chat, "Read SESSION_STATE.md first."): Phase 4 code-mixing engine (hi-en / mr-en / gu-en, L1/L2). It needs mr/gu code-mix references (team sources, still to inspect).
 

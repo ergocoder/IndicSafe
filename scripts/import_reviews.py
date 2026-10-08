@@ -43,10 +43,19 @@ def main(argv: list[str] | None = None) -> int:
         settings = load_settings()
         cfg = load_review_config(settings.project_root / args.config)
         result = import_reviews(cfg, settings)
-        paths = write_review_layer(result, settings)
     except (ConfigError, ReviewImportError, ValueError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
+
+    # Build before rewriting the review report: the report is a tracked file, and
+    # rewriting it first would mark the build's git state as dirty.
+    built, build_error = None, None
+    if args.build:
+        try:
+            built = build_reviewed_pilot(result, settings, force=args.force)
+        except AdjudicationError as e:
+            build_error = e
+    paths = write_review_layer(result, settings)
 
     lab, cat = result.agreement["label"], result.agreement["category"]
     print(f"seeds: {lab['n_seeds']}   annotators: {', '.join(result.agreement['annotators'])}")
@@ -73,15 +82,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {d['seed_id']} {d['column']}: worksheet={d['worksheet']!r} computed={d['computed']!r}")
     print(f"layer:  {paths['layer']}\nreport: {paths['report']}")
 
-    if args.build:
-        try:
-            out = build_reviewed_pilot(result, settings, force=args.force)
-        except AdjudicationError as e:
-            print(f"NOT BUILT: {e}", file=sys.stderr)
-            for p in e.problems:
-                print(f"  - {p}", file=sys.stderr)
-            return 2
-        print(f"pilot:  {out['jsonl']}\n        manifest: {out['manifest']}")
+    if build_error is not None:
+        print(f"NOT BUILT: {build_error}", file=sys.stderr)
+        for p in build_error.problems:
+            print(f"  - {p}", file=sys.stderr)
+        return 2
+    if built is not None:
+        print(f"pilot:  {built['jsonl']}\n        manifest: {built['manifest']}")
     return 0
 
 

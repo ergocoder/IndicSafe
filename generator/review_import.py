@@ -90,8 +90,19 @@ def norm_key(text: str) -> str:
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:
+    """Read a CSV, refusing rows with more cells than the header.
+
+    An unquoted comma in a free-text cell (e.g. a rationale) splits it, and the
+    overflow would otherwise be dropped silently.
+    """
     with path.open(encoding="utf-8-sig", newline="") as fh:
-        return list(csv.DictReader(fh))
+        rows = list(csv.DictReader(fh))
+    for i, row in enumerate(rows, start=2):
+        if None in row:
+            raise ReviewImportError(
+                f"{path.name} line {i}: {len(row[None])} cell(s) beyond the header "
+                f"({row[None]!r}); a text cell probably contains an unquoted comma")
+    return rows
 
 
 def _require_columns(path: Path, rows: list[dict], columns: tuple[str, ...]) -> None:

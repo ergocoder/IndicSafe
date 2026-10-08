@@ -17,6 +17,7 @@ import pytest
 from backend.config import load_settings
 from generator.provenance import sha256_file
 from generator.review_import import (
+    ADJUDICATION_COLUMNS,
     AdjudicationError,
     ReviewImportError,
     build_reviewed_pilot,
@@ -40,6 +41,14 @@ def proj(tmp_path: Path) -> Path:
         shutil.copy(REPO / rel, tmp_path / rel)
     shutil.copytree(REPO / "data/pilot/reviews", tmp_path / "data/pilot/reviews",
                     ignore=shutil.ignore_patterns("review_layer_*", "review_report_*"))
+    # Tests start from an unadjudicated worksheet, whatever state the real one is in.
+    ws = tmp_path / "data/pilot/reviews/adjudication_worksheet_v0.1.csv"
+    with ws.open(encoding="utf-8-sig", newline="") as fh:
+        header, *rows = list(csv.reader(fh))
+    blank = {header.index(c) for c in ADJUDICATION_COLUMNS}
+    rows = [["" if i in blank else v for i, v in enumerate(r[:len(header)])] for r in rows]
+    with ws.open("w", encoding="utf-8-sig", newline="") as fh:
+        csv.writer(fh).writerows([header, *rows])
     return tmp_path
 
 
@@ -289,3 +298,12 @@ def test_both_blank_categories_still_need_adjudication(proj):
     _edit_csv(proj / ANN_S, blank_first)
     res, _ = _run(proj)
     assert res.layer[0]["issue"] == "category" and res.layer[0]["category_agreement"] is None
+
+
+def test_unquoted_comma_in_worksheet_is_rejected(proj):
+    ws = proj / "data/pilot/reviews/adjudication_worksheet_v0.1.csv"
+    text = ws.read_text(encoding="utf-8-sig").splitlines()
+    text[1] = text[1] + "bhargavi,part one, part two"     # rationale split by an unquoted comma
+    ws.write_text("\n".join(text) + "\n", encoding="utf-8-sig")
+    with pytest.raises(ReviewImportError, match="beyond the header"):
+        _run(proj)
