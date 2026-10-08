@@ -308,12 +308,27 @@ class ScriptQCConfig(BaseModel):
     romanized_min_share: float = Field(ge=0.0, le=1.0)
 
 
+class LanguageQCConfig(_Strict):
+    detector: Literal["lingua_markers"]
+    candidates: list[str] = Field(min_length=2)
+    min_marker_tokens: int = Field(ge=1)
+    pass_confidence: float = Field(ge=0.0, le=1.0)
+    review_confidence: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "LanguageQCConfig":
+        if self.review_confidence > self.pass_confidence:
+            raise ValueError("qc.language.review_confidence must be <= pass_confidence")
+        return self
+
+
 class QCConfig(BaseModel):
     # extra="allow": only the parts used so far are typed; the remaining QC
     # design blocks are validated when their phase is implemented.
     model_config = ConfigDict(extra="allow", frozen=True)
 
     script: ScriptQCConfig
+    language: LanguageQCConfig
 
 
 class GenerationConfig(BaseModel):
@@ -373,6 +388,9 @@ class Settings(BaseModel):
         for lang in gen.paraphrase.languages:
             if lang not in langs:
                 raise ValueError(f"paraphrase language {lang!r} not in languages.yaml")
+        for lang in gen.qc.language.candidates:
+            if lang not in langs:
+                raise ValueError(f"qc.language candidate {lang!r} not in languages.yaml")
         return self
 
 

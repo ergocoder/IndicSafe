@@ -2,9 +2,9 @@
 # ---------------------------------------------------------------------------
 # Phase 1 uses: generator_version, random_seed, seed_validation, pilot.
 # Phase 2 uses: transformations, transformation_engine, translation,
-# transliteration, paraphrase, and qc.script. The rest of `qc` is the Phase 0
-# design; nothing reads it yet. It lives here so later phases change
-# configuration, not code.
+# transliteration, paraphrase, and qc.script; Phase 3 adds qc.language. The
+# rest of `qc` is the Phase 0 design; nothing reads it yet. It lives here so
+# later phases change configuration, not code.
 # Every threshold is an initial value to calibrate on the pilot.
 
 generator_version: "0.1.0"
@@ -72,6 +72,19 @@ translation:
       type: local_mt
       enabled: true
       target_languages: [hi, mr, gu]
+      model: ai4bharat/indictrans2-en-indic-dist-200M   # gated: accept terms on HF + `hf auth login`
+      options:
+        # Pinned commit: reproducible output, and the trust_remote_code model files
+        # cannot change underneath us. null = latest; the resolved sha is recorded
+        # on every transformation record either way.
+        revision: 173b94239f7c38886b2747b8d4a5db771a7e1232   # HF commit, 2026-10-08
+        device: auto              # auto (cuda if available, else cpu) | cuda | cpu
+        fp16: true                # half precision on CUDA only; cpu always runs fp32
+        batch_size: 2             # sentences per generate() call; halved automatically on CUDA OOM (4 OOMed once on 4 GB)
+        num_beams: 5              # IndicTrans2 reference decoding
+        max_new_tokens: 256
+        use_cache: false          # KV cache breaks the model's remote code on transformers 4.57; speed only
+        cache_dir: null           # HF cache; null = HF_HUB_CACHE / HF_HOME env or the HF default
     llm:
       type: llm_api                   # optional adapter; reads its settings from .env
       enabled: false
@@ -79,12 +92,21 @@ translation:
     Phase 2 runs a small pilot, evaluates translation quality (native-speaker
     review of a sample per language), and only then fixes the production model.
 
-# Romanisation / script conversion. Method (rule-based scheme vs informal
-# LLM romanisation) is chosen in Phase 3; until then no provider is configured
-# and callers must pass one explicitly.
+# Romanisation (native script -> Latn). Chosen in Phase 2b/3 after comparing
+# strict schemes (ISO 15919 / ITRANS) with colloquial romanisation on pilot
+# outputs; IndicXlit could not be installed (fairseq, no Windows/py3.13 build).
+# See docs/phase2b_3_notes.md.
 transliteration:
-  default_provider: null
-  providers: {}
+  default_provider: colloquial_roman
+  providers:
+    colloquial_roman:
+      type: rule_based
+      enabled: true
+      target_languages: [hi, mr, gu]
+      model: aksharamukha/RomanColloquial
+      options:
+        schwa_deletion: true      # Aksharamukha RemoveSchwaHindi (Gujarati goes through Devanagari)
+        final_nasal_as_n: true    # word-final anusvara/candrabindu -> "n" (main, hain, hoon)
 
 paraphrase:
   default_provider: null              # optional; LLM adapter off by default
@@ -96,6 +118,12 @@ paraphrase:
 
 qc:
   language:
+    # Language ID for native-script variants (Phase 3, generator/language_qc.py).
+    # Lingua decides among `candidates`; hi vs mr is decided by function-word
+    # markers when at least `min_marker_tokens` markers are present.
+    detector: lingua_markers
+    candidates: [en, hi, mr, gu]
+    min_marker_tokens: 2
     pass_confidence: 0.80
     review_confidence: 0.50
   script:

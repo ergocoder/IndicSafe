@@ -1,0 +1,61 @@
+{
+  "run_id": "TRANSFORM_20261007T225125Z_7dbbfe84",
+  "status": "preliminary: input pilot is v0.1 (before adjudication); rerun on v0.2",
+  "input_seeds": {
+    "path": "D:\\Projects\\IndicSafe\\data\\pilot\\pilot_seeds_v0.1-pilot-seeds.jsonl",
+    "sha256": "2d43e03c042770d34d5ac61cd7372e987d6c61198bacd65aa625875ec22b5cd5",
+    "n": 30
+  },
+  "languages": [
+    "hi",
+    "mr",
+    "gu"
+  ],
+  "providers": [
+    "identity: copy 0.1.0 None",
+    "translation: indictrans2 1.0+float16+beam5+max256 ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232",
+    "transliteration: colloquial_roman 1.0+aksharamukha-2.3+schwa1+nasal1 aksharamukha/RomanColloquial"
+  ],
+  "language_qc": {
+    "detector": "lingua-2.2.0",
+    "config": {
+      "detector": "lingua_markers",
+      "candidates": [
+        "en",
+        "hi",
+        "mr",
+        "gu"
+      ],
+      "min_marker_tokens": 2,
+      "pass_confidence": 0.8,
+      "review_confidence": 0.5
+    },
+    "script_thresholds": {
+      "native_min_share": 0.85,
+      "romanized_min_share": 0.95
+    },
+    "status_by_variant_kind": {
+      "en/Latn:PASS": 30,
+      "gu/Gujr:PASS": 30,
+      "gu/Latn:PASS": 30,
+      "hi/Deva:PASS": 30,
+      "hi/Latn:PASS": 30,
+      "mr/Deva:PASS": 29,
+      "mr/Deva:REVIEW": 1,
+      "mr/Latn:PASS": 30
+    }
+  },
+  "transformations_by_type_status": {
+    "identity:SUCCEEDED": 30,
+    "translation:SUCCEEDED": 90,
+    "transliteration:SUCCEEDED": 90
+  },
+  "outputs": {
+    "variants.jsonl": "cf06fe1ae13936892f31a203dfc076c247b370085e17fc8547f51e21532399e6",
+    "transformations.jsonl": "28497871d2741193d450fc33a455e3d005420a61036e1e851199b880d0b75c49",
+    "language_qc.jsonl": "27f6774024eb175b75db641f0970e3ddd8d18b3bdd1b16f132ca77918166c774",
+    "review_hi.csv": "2e8e812fa6f53aeb50505c9c42513e38c4850985056e499ce70a748b07be6cf9",
+    "review_mr.csv": "abb38905e0b9b2af6510c7c10b50ff3031af836c605c6dc909756f4f17bc3455",
+    "review_gu.csv": "f9c39bfe95c5eda58366137846b7475e2c4334f9ebbdaf91bf8a81bc2227a898"
+  }
+}

@@ -1,6 +1,6 @@
 # IndicSafe — Session State
 
-Last updated: 2026-10-08 · Phase 2 committed (1723fea). Pilot review layer (v0.1 double annotation) implemented, **not committed**, awaiting review · adjudication pending on the team side · next: Phase 2b
+Last updated: 2026-10-08 · Pilot review layer committed (320c4dc). **Phase 2b + 3 (real adapters, language/script layer, preliminary pilot translation run) implemented, not committed, awaiting review** · adjudication still pending on the team side · next: native-speaker review of the pilot translations, then Phase 4
 
 ## Objective
 
@@ -67,6 +67,44 @@ Build a reproducible, provenance-rich dataset generator for an Indian multilingu
 - **Not done (by instruction):** no adjudications filled and no `final_label` set by Claude; no new worksheet.
 - **Tests:** 155 pass (15 new, in `tests/test_review_import.py`, run on temp copies of the real files).
 
+## Implemented (Phase 2b + 3 — real adapters, language/script layer)
+
+Full notes: `docs/phase2b_3_notes.md`.
+
+- **Environment** (Windows, GTX 1650 4 GB, Python 3.13):
+  - `torch 2.14.1+cu126`; `torch.cuda.is_available()` is True.
+  - The wheel was downloaded with resume to `D:\wheels\`, because pip's 2.6 GB download kept getting reset.
+  - `transformers 4.57.6`. 5.x cannot be used: the model's remote code imports `transformers.onnx`, removed in 5.0.
+- **Hugging Face:** logged in as ergocoder; access to the gated model is confirmed.
+  - Model cached in the default HF cache on C:, about 1.1 GB.
+  - **C: has only about 1.3 GB free** (2026-10-08, after the model download). Set `HF_HUB_CACHE` or the `cache_dir` option to use D:.
+- **Translation** (`generator/indictrans2.py`): provider `indictrans2`.
+  - Model `ai4bharat/indictrans2-en-indic-dist-200M`, pinned to commit `173b9423…`. Remote code checked: imports only torch, transformers and sentencepiece.
+  - Runs fp16 on CUDA; `device: auto` falls back to fp32 on CPU. On OOM the batch is halved down to 1, then the item fails as ERROR.
+  - Beam 5, max_new_tokens 256, batch_size 2.
+  - **KV cache off:** the remote code breaks with the transformers 4.57 cache objects. This costs speed only.
+  - IndicTransToolkit `IndicProcessor` is **vendored** as a mechanical pure-Python port (`generator/vendor/`, MIT). The PyPI sdist needs MSVC, which isn't installed. A compiled install is preferred automatically.
+  - Records: `provider_version` = `1.0+float16+beam5+max256`, `generator_model` = `<repo>@<sha>`. `provider_metadata` holds the revision, device, dtype, decoding parameters, token count, truncation flag, preprocessor and library/GPU versions.
+- **Romanisation** (`generator/romanization.py`): provider `colloquial_roman`, now the configured default.
+  - Aksharamukha `RomanColloquial` + `RemoveSchwaHindi` + final anusvara → n. Gujarati goes through a Devanagari pivot.
+  - IndicXlit is **not installable** here: it depends on fairseq, which has no Windows/py3.13 build.
+  - Compared against ISO 15919 / ITRANS on pilot outputs (notes §5). The strict schemes are unreadable as user text.
+  - Known errors: schwa deletion in compounds (*lokasbheche*), phonetic loanwords (*deta*).
+- **Language/script QC** (`generator/language_qc.py`): one `LanguageQCRecord` per variant in `language_qc.jsonl`.
+  - **Script check** with the existing `qc.script` thresholds.
+  - **LID** = Lingua 2.2.0 over en/hi/mr/gu, plus hi/mr function-word markers. The markers apply when there are ≥ 2 of them, because Lingua alone is near chance on hi vs mr.
+  - **Statuses:** PASS ≥ 0.80; otherwise REVIEW, or FAIL on a confident mismatch.
+  - Romanised / code-mixed text is `NOT_APPLICABLE` for LID.
+  - Config: `qc.language` (typed `LanguageQCConfig`).
+- **Pipeline:** `generator/pilot_translation.py` + `scripts/run_pilot_translation.py`.
+  - Batched translate → engine → romanise → QC → `review_{hi,mr,gu}.csv` (utf-8-sig, blank reviewer columns) + `pilot_translation_summary.json`.
+  - Adapters register on `import generator.providers`.
+- **Pilot run** `data/pilot/translations/TRANSFORM_20261007T225125Z_7dbbfe84/` (**preliminary**, input v0.1):
+  - 90/90 translations and 90/90 romanisations SUCCEEDED; no warnings or truncation; about 155 s on the GPU.
+  - Language QC 179/180 PASS. One Marathi item is REVIEW (correct Marathi, too few markers).
+- **Tests:** 180 pass, plus 1 GPU integration test (`-m integration`) that passes here and skips without torch / CUDA / the cached model.
+  - 25 new unit tests. They use a fake model backend, a fake LID, and the real (fast) Aksharamukha and Lingua.
+
 ## Key decisions
 
 - **Raw data stays zipped** in `data/raw/` and is never extracted or modified. All 15 checksums were verified unchanged after the work.
@@ -105,7 +143,8 @@ Build a reproducible, provenance-rich dataset generator for an Indian multilingu
 
 - **Source labels and categories are often wrong.** For example, `S-NHQA-366` (phishing) maps to `dangerous_instructions` but is really `cyber_misuse`, and `S-DFH-1127` looks benign. Human review must fix these; nothing is relabelled automatically.
 - **All seeds are English-origin** so far.
-- **There is no language detector yet.** Script detection alone cannot tell hi from mr, since both use Devanagari.
+- **Language ID is heuristic for hi vs mr** (Lingua + hand-written markers, uncalibrated). Romanised text is not language-identified.
+- **Romanisation is one fixed colloquial spelling per word**, with known schwa and loanword errors (see `docs/phase2b_3_notes.md` §5).
 - **There is no Marathi–English or Gujarati–English code-mix gold data** in `data/raw/`, and no romanised Gujarati references. The team has named candidate external sources: IndicGuard, SurakshaEval, L3Cube-MeCorpus/MeHate, Bhasha SFT (Soket AI Labs) and AIKosh. Each must be inspected for mr-en/gu-en content, licence, task fit and benchmark overlap before use (`docs/phase0_design.md` §14).
 - **The thresholds and code-mix bands are untested starting values.**
 - **Licences:** the team confirmed all raw files are open and free to use (`OPEN_TEAM_CONFIRMED` in `configs/sources.yaml`). Exact licence names and citations are still needed for the dataset card. The 42 MB of raw zips are committed to git.
@@ -120,8 +159,8 @@ Build a reproducible, provenance-rich dataset generator for an Indian multilingu
 | 1 | Seed Manager + provenance | **Done**; all 9 guide-§7 checks re-verified on 2026-10-08 |
 | 2 | Transformation Engine: interface, translation adapter (IndicTrans2 default, optional LLM), paraphrase and transliteration interfaces, `parent_prompt_id`/`seed_id` lineage, validation hooks | **Done, awaiting review** (interfaces only; real IndicTrans2 / transliteration adapters still to add) |
 | 2a | Pilot review layer: double-annotation import, agreement, adjudication → v0.2 | **Done, awaiting review**; team must fill the worksheet, then `--build` |
-| 2b | Real adapters: IndicTrans2 translation + chosen romanisation method; pilot translation evaluation | **Next** (or fold into Phase 3) |
-| 3 | Language/script layer | |
+| 2b | Real adapters: IndicTrans2 translation + chosen romanisation method; pilot translation evaluation | **Done, awaiting review**; native-speaker review of the CSVs pending |
+| 3 | Language/script layer | **Done, awaiting review** (script check + Lingua/marker LID, QC records) |
 | 4 | Code-mixing engine | |
 | 5 | QC pipeline | |
 | 6 | Generation jobs | |
@@ -135,16 +174,12 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 
 ## Exact next steps
 
-1. Review the pilot review layer (`generator/review_import.py`, `data/pilot/reviews/category_mapping_v0.1.csv`, `review_report_v0.1.json`, `tests/test_review_import.py`).
-2. Commit in PowerShell: `git add .; git commit -m "pilot review layer and agreement"`.
-3. Team: approve or change `adjudication_rules_draft.md`, fill the 4 adjudication columns for the 8 worksheet rows (exact category_ids), then run `scripts\import_reviews.py --build` to produce pilot v0.2.
-4. Next phase, in a new chat that starts with "Read SESSION_STATE.md first.":
-   - real IndicTrans2 adapter (adds torch/transformers deps) and a romanisation method;
-   - a small pilot translation run and native-speaker review;
-   - language/script layer (language ID for hi vs mr).
-5. Still open on the team side:
-   - Gujarati annotators.
-   - Code-mix reference sources for mr and gu, inspected in Phase 4 (code-mixing).
+1. Review Phase 2b/3 code and outputs: `generator/{indictrans2,romanization,language_qc,pilot_translation,providers}.py`, `generator/vendor/`, `docs/phase2b_3_notes.md`, the run folder under `data/pilot/translations/`.
+2. Commit in PowerShell: `git add .; git commit -m "phase 2b+3 adapters, language qc, preliminary pilot translations"`.
+3. Team: send `review_hi.csv`, `review_mr.csv` and `review_gu.csv` to native speakers. The sheets contain the UNSAFE pilot prompts in translation; reviewers should know that. Gujarati reviewers are still unconfirmed.
+4. Team: adjudicate the v0.1 worksheet, run `scripts\import_reviews.py --build`, then rerun `scripts\run_pilot_translation.py --seeds data/pilot/pilot_seeds_v0.2-pilot-seeds.jsonl`. Variant ids for unchanged seeds stay the same.
+5. Use the review results to calibrate the QC thresholds and markers and to confirm IndicTrans2 as the production model.
+6. Next phase (new chat, "Read SESSION_STATE.md first."): Phase 4 code-mixing engine (hi-en / mr-en / gu-en, L1/L2). It needs mr/gu code-mix references (team sources, still to inspect).
 
 ## Commands
 
@@ -152,5 +187,8 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe scripts\import_seeds.py      # --no-pilot | --manual-csv <csv> | --force
 .\.venv\Scripts\python.exe scripts\import_reviews.py    # review layer + agreement; --build [--force] -> pilot v0.2
-.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe scripts\run_pilot_translation.py   # --seeds <jsonl> --languages hi mr gu --limit N
+.\.venv\Scripts\python.exe -m pytest                          # -m integration: GPU test only
 ```
+
+If pip times out on the 2.6 GB torch wheel, download it with `curl -C -` and `pip install` the file.

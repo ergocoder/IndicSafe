@@ -419,13 +419,13 @@ def test_identity_only_via_root(engine, root):
 
 
 def test_default_providers_from_real_config(settings):
-    # indictrans2 is the configured default but no adapter exists yet: refused, not faked.
+    # A configured default with no registered adapter is refused, not faked.
     with pytest.raises(ProviderUnavailableError, match="no adapter"):
-        build_translation_provider(settings)
+        build_provider(settings, "translation", factories={})
+    with pytest.raises(ProviderUnavailableError, match="no adapter"):
+        build_provider(settings, "transliteration", factories={})
     with pytest.raises(ProviderUnavailableError, match="disabled"):
         build_translation_provider(settings, "llm")
-    with pytest.raises(ProviderUnavailableError, match="no default transliteration"):
-        build_transliterator(settings)
     with pytest.raises(ProviderUnavailableError, match="no default paraphrase"):
         build_paraphrase_provider(settings)
     with pytest.raises(ProviderUnavailableError, match="not configured"):
