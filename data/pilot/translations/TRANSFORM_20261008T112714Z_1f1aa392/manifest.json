@@ -1,0 +1,229 @@
+{
+  "run_id": "TRANSFORM_20261008T112714Z_1f1aa392",
+  "run_type": "transformation",
+  "started_at": "2026-10-08T11:27:14Z",
+  "finished_at": "2026-10-08T11:30:20Z",
+  "generator_version": "0.1.0",
+  "taxonomy_version": "1.0",
+  "taxonomy_status": "frozen",
+  "languages_version": "0.1",
+  "sources_version": "0.1",
+  "random_seed": 42,
+  "config_sha256": {
+    "sources.yaml": "fb93a54cbb954b0a912e6852a414a05f1eada2b88149719c68feadcb2f46add2",
+    "languages.yaml": "bd2a30fe2c61c44eb94a04e119afc025e8fdc83faea70ba7bc420c5315300403",
+    "taxonomy.yaml": "46b23d31872abadc0a8677d8249106593fb75e4b03db371ebad54eeb99b54503",
+    "generation.yaml": "8c5f1026ba926e0d44d49b5107d6c351809da66b21c60e2b3bff52c2e5543396"
+  },
+  "source_files": {},
+  "git": {
+    "commit": "01dd483471d47c4ce0a68c5ad610249c68556847",
+    "dirty": false
+  },
+  "environment": {
+    "python": "3.13.7",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "packages": {
+      "pydantic": "2.13.5",
+      "PyYAML": "6.0.3",
+      "pytest": "8.4.2"
+    }
+  },
+  "engine_version": "0.1.0",
+  "input_seeds": {
+    "S-D10K-010010003101": {
+      "seed_version": 1,
+      "content_hash": "34edefd6f5cb5b84febf1214d2cc8d64278d3303acca6a9d0e696af3c708271c"
+    },
+    "S-D10K-010060030601": {
+      "seed_version": 1,
+      "content_hash": "cae26d337cb927422b4e29459ac129bfac1ed200c9317e253cc5efae94c79390"
+    },
+    "S-D10K-010060034201": {
+      "seed_version": 1,
+      "content_hash": "d0786a56069a4dcfba9f4b7d5f5dd14bcb55bce3d8e582643d43fd74ca31ee76"
+    },
+    "S-D10K-010090048201": {
+      "seed_version": 1,
+      "content_hash": "ff88ede450703cd5dcbefd4eb20c3289bc4f443597a222f41ddefcb2f227a87e"
+    },
+    "S-D10K-010100051701": {
+      "seed_version": 1,
+      "content_hash": "7a2eb225628aa1503dec9d83f9871e854816d58353c31bed989f0b054b51c450"
+    },
+    "S-D10K-020000003601": {
+      "seed_version": 1,
+      "content_hash": "1e08a6a3e757830667f06366191e8fa7f7b43282637cbe0ed79f55165e9136ae"
+    },
+    "S-D10K-020000015601": {
+      "seed_version": 1,
+      "content_hash": "182303ff1aa4fe0bc96b61c81904eca32213bb1a6b9c91225f5bd3943a103614"
+    },
+    "S-D10K-020000020601": {
+      "seed_version": 1,
+      "content_hash": "d8c208ffb2617ff8a3e41703ca9512974a25d9b239d88c411566b945525699f6"
+    },
+    "S-D10K-020000061601": {
+      "seed_version": 1,
+      "content_hash": "a8eb1fe9579bcc43f5a899c2370b88a9b6dcccf69bf9e8252731faa400b53c82"
+    },
+    "S-D10K-020000075101": {
+      "seed_version": 1,
+      "content_hash": "29f0d2a1cfe7eb9392c4a096069b761460b831f1be4b644a0ba7dbf02afde7e9"
+    },
+    "S-DFH-1127": {
+      "seed_version": 1,
+      "content_hash": "5d7aea774a2bb068db27a618e2f5b3e7696b52eff31d4d4d99440779a2252d1a"
+    },
+    "S-DFH-1281": {
+      "seed_version": 1,
+      "content_hash": "20d2bd7e2e3408c1d4866e49aadaf872da67ab0e7a98f51ae7d0e7ae4c900deb"
+    },
+    "S-DFH-1497": {
+      "seed_version": 1,
+      "content_hash": "0eadcbbd552d2592c85ab4189a49df2e26699d903f673d041d09023eb225e85e"
+    },
+    "S-DFH-1740": {
+      "seed_version": 1,
+      "content_hash": "35c07ad804d4a9d9c8a816512bf7250e187570e7ba4b7ac2f87f2c3a13fa12d3"
+    },
+    "S-DFH-1885": {
+      "seed_version": 1,
+      "content_hash": "78fbd132586037b6711c7078b62a2828700af9fcc50073d0c9c0a521453ac69a"
+    },
+    "S-DFH-307": {
+      "seed_version": 1,
+      "content_hash": "c3da62a03aac839bb9e9b74722c34502ed4370ebd806e4b73d7e8fb712719a1f"
+    },
+    "S-DFH-590": {
+      "seed_version": 1,
+      "content_hash": "d156fac730f0d3aa689a1639bc93c829629568271d58ee3c2c328b785a1a3bc5"
+    },
+    "S-DFH-955": {
+      "seed_version": 1,
+      "content_hash": "c35bde81b714a62909586aad6ef309d569bca1c82a757076b95ee5e8d14f679a"
+    },
+    "S-NHQA-121": {
+      "seed_version": 1,
+      "content_hash": "02cee47f1d10d0115f08158df9eb175748949bd10edd5dca483941f3965f29f1"
+    },
+    "S-NHQA-128": {
+      "seed_version": 1,
+      "content_hash": "18f7757aa6ec4dc387e61d03832f16b445e836b57b25761d5330b10acd85e2bd"
+    },
+    "S-NHQA-163": {
+      "seed_version": 1,
+      "content_hash": "2edb7db51de832531abe20d1aa369381a8ce406e855359881351f5bed961882c"
+    },
+    "S-NHQA-215": {
+      "seed_version": 1,
+      "content_hash": "65f11fcedf7ab41713d29f97923aabcee9ddf70811efd61751f5f657fa0387c6"
+    },
+    "S-NHQA-250": {
+      "seed_version": 1,
+      "content_hash": "1fdeebc514c1f839cfc21c2da65ea1130234b8528e89eee234d8a77237a0a341"
+    },
+    "S-NHQA-253": {
+      "seed_version": 1,
+      "content_hash": "6e20c70d269423243b7c2a4c4b4645a8373c38e9ab2ba1b1a42cd529cdd426fe"
+    },
+    "S-NHQA-282": {
+      "seed_version": 1,
+      "content_hash": "4e460ba8021530a2e8f6bd0c2adcc9cecc0ce5bf40d89368c66707514cc42349"
+    },
+    "S-NHQA-291": {
+      "seed_version": 1,
+      "content_hash": "8f7b7df1bc6deea064477b2a287cfe0c75c096652775b85c8f61c225c7eb9ee8"
+    },
+    "S-NHQA-324": {
+      "seed_version": 1,
+      "content_hash": "c7206c9e3aaf7fe4e1ea4a2326394311836e72f015935fbf44a1d859137671f9"
+    },
+    "S-NHQA-366": {
+      "seed_version": 1,
+      "content_hash": "a4e4b8102d86c86cee0b54c402c0bfc20a33ed550e69ebcc69f1c6525d575d37"
+    },
+    "S-NHQA-39": {
+      "seed_version": 1,
+      "content_hash": "34216e080a66afa81a77b41e86c74ce8bf60e01cdd5b44e9fdd5c4a3e5187d7a"
+    },
+    "S-NHQA-6": {
+      "seed_version": 1,
+      "content_hash": "0259f76c8d6e2edc1f025911a25f80b29a4cbd7816cb9853624c3ddd3ad132b1"
+    }
+  },
+  "transformation_config": {
+    "enabled": [
+      "identity",
+      "translation",
+      "transliteration",
+      "code_mixing",
+      "paraphrase"
+    ],
+    "validation_hooks": {
+      "default": [
+        "non_empty",
+        "text_integrity",
+        "expected_script",
+        "differs_from_parent",
+        "length_ratio",
+        "code_mix_band"
+      ],
+      "identity": [
+        "non_empty",
+        "text_integrity",
+        "expected_script"
+      ]
+    },
+    "length_ratio": {
+      "min": 0.3,
+      "max": 3.0
+    },
+    "id_hash_chars": 16
+  },
+  "providers_used": [
+    [
+      "code_mixing",
+      "mt_lexical_swap",
+      "2.0+align:indictrans2-1.0+float16+beam5+max256+phon:colloquial_roman-1.1+aksharamukha-2.3+schwa1+nasal1+pos:spacy-3.8.16+en_core_web_sm-3.8.0+verbs1+tp0.5",
+      "ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232"
+    ],
+    [
+      "identity",
+      "copy",
+      "0.1.0",
+      ""
+    ],
+    [
+      "translation",
+      "indictrans2",
+      "1.0+float16+beam5+max256",
+      "ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232"
+    ],
+    [
+      "transliteration",
+      "colloquial_roman",
+      "1.1+aksharamukha-2.3+schwa1+nasal1",
+      "aksharamukha/RomanColloquial"
+    ]
+  ],
+  "counts": {
+    "transformations_by_type_status": {
+      "code_mixing:SUCCEEDED": 164,
+      "code_mixing:VALIDATION_FAILED": 16,
+      "identity:SUCCEEDED": 30,
+      "translation:SUCCEEDED": 90,
+      "transliteration:SUCCEEDED": 254
+    },
+    "variants_by_validation_status": {
+      "FAIL": 16,
+      "PASS": 526,
+      "WARN": 12
+    }
+  },
+  "label_note": "intended_label is inherited from the seed and provisional; label_consistency_status is UNCHECKED until the QC phase.",
+  "outputs": {
+    "variants.jsonl": "a8ca707134512b1a9987291202c8a897448c328251577a2397b4c1ff23ca0cf8",
+    "transformations.jsonl": "7bceac45d15750b167c1b087b516a077c8c4d0c30550460ceb184f2393e160cd"
+  }
+}

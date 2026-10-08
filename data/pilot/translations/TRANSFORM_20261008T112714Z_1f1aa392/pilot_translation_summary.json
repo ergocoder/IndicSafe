@@ -1,0 +1,128 @@
+{
+  "run_id": "TRANSFORM_20261008T112714Z_1f1aa392",
+  "input_seeds": {
+    "path": "D:\\Projects\\IndicSafe\\data\\pilot\\pilot_seeds_v0.2-pilot-seeds.jsonl",
+    "sha256": "c0fb78158048b5a1e4d16a38b144dcaa4885af4712ba36fc884944e1bc274412",
+    "dataset_version": "v0.2-pilot-seeds",
+    "n": 30,
+    "intended_label_counts": {
+      "AMBIGUOUS": 2,
+      "SAFE": 12,
+      "UNSAFE": 16
+    }
+  },
+  "languages": [
+    "hi",
+    "mr",
+    "gu"
+  ],
+  "providers": [
+    "code_mixing: mt_lexical_swap 2.0+align:indictrans2-1.0+float16+beam5+max256+phon:colloquial_roman-1.1+aksharamukha-2.3+schwa1+nasal1+pos:spacy-3.8.16+en_core_web_sm-3.8.0+verbs1+tp0.5 ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232",
+    "identity: copy 0.1.0 None",
+    "translation: indictrans2 1.0+float16+beam5+max256 ai4bharat/indictrans2-en-indic-dist-200M@173b94239f7c38886b2747b8d4a5db771a7e1232",
+    "transliteration: colloquial_roman 1.1+aksharamukha-2.3+schwa1+nasal1 aksharamukha/RomanColloquial"
+  ],
+  "language_qc": {
+    "detector": "lingua-2.2.0",
+    "config": {
+      "detector": "lingua_markers",
+      "candidates": [
+        "en",
+        "hi",
+        "mr",
+        "gu"
+      ],
+      "min_marker_tokens": 2,
+      "pass_confidence": 0.8,
+      "review_confidence": 0.5
+    },
+    "script_thresholds": {
+      "native_min_share": 0.85,
+      "romanized_min_share": 0.95
+    },
+    "status_by_variant_kind": {
+      "en/Latn:PASS": 30,
+      "gu/Gujr:PASS": 90,
+      "gu/Latn:PASS": 86,
+      "hi/Deva:PASS": 90,
+      "hi/Latn:PASS": 84,
+      "mr/Deva:PASS": 89,
+      "mr/Deva:REVIEW": 1,
+      "mr/Latn:PASS": 84
+    }
+  },
+  "transformations_by_type_status": {
+    "code_mixing:SUCCEEDED": 164,
+    "code_mixing:VALIDATION_FAILED": 16,
+    "identity:SUCCEEDED": 30,
+    "translation:SUCCEEDED": 90,
+    "transliteration:SUCCEEDED": 254
+  },
+  "code_mix": {
+    "levels": [
+      "L1",
+      "L2"
+    ],
+    "bands": {
+      "L0": [
+        0.0,
+        0.05
+      ],
+      "L1": [
+        0.05,
+        0.2
+      ],
+      "L2": [
+        0.2,
+        0.35
+      ],
+      "L3": [
+        0.35,
+        0.5
+      ]
+    },
+    "tolerance": 0.03,
+    "slots_by_lang_level_script_status": {
+      "gu/L1/Gujr:FAIL": 3,
+      "gu/L1/Gujr:PASS": 27,
+      "gu/L1/Latn:NOT_PRODUCED": 3,
+      "gu/L1/Latn:PASS": 27,
+      "gu/L2/Gujr:FAIL": 1,
+      "gu/L2/Gujr:PASS": 28,
+      "gu/L2/Gujr:WARN": 1,
+      "gu/L2/Latn:NOT_PRODUCED": 1,
+      "gu/L2/Latn:PASS": 28,
+      "gu/L2/Latn:WARN": 1,
+      "hi/L1/Deva:FAIL": 2,
+      "hi/L1/Deva:PASS": 27,
+      "hi/L1/Deva:WARN": 1,
+      "hi/L1/Latn:NOT_PRODUCED": 2,
+      "hi/L1/Latn:PASS": 27,
+      "hi/L1/Latn:WARN": 1,
+      "hi/L2/Deva:FAIL": 4,
+      "hi/L2/Deva:PASS": 24,
+      "hi/L2/Deva:WARN": 2,
+      "hi/L2/Latn:NOT_PRODUCED": 4,
+      "hi/L2/Latn:PASS": 24,
+      "hi/L2/Latn:WARN": 2,
+      "mr/L1/Deva:FAIL": 3,
+      "mr/L1/Deva:PASS": 27,
+      "mr/L1/Latn:NOT_PRODUCED": 3,
+      "mr/L1/Latn:PASS": 27,
+      "mr/L2/Deva:FAIL": 3,
+      "mr/L2/Deva:PASS": 25,
+      "mr/L2/Deva:WARN": 2,
+      "mr/L2/Latn:NOT_PRODUCED": 3,
+      "mr/L2/Latn:PASS": 25,
+      "mr/L2/Latn:WARN": 2
+    }
+  },
+  "outputs": {
+    "variants.jsonl": "a8ca707134512b1a9987291202c8a897448c328251577a2397b4c1ff23ca0cf8",
+    "transformations.jsonl": "7bceac45d15750b167c1b087b516a077c8c4d0c30550460ceb184f2393e160cd",
+    "language_qc.jsonl": "ee2dae4d499ce6c9dac7b8e3bb1106bf1c5aaa4892d61c802b1c995df0e9ca6c",
+    "review_hi.csv": "18a079158c28ff5ba98171608f973d0bad1faa18f0128e61ac83f5ebd3f8bac9",
+    "review_mr.csv": "81d189543c842403c5b88753591c056133b6cde5376bcff739732ad0f4f1c852",
+    "review_gu.csv": "ebdbad11cc8a649781885bef104fd664424c45795cb6bb63085564cefb020a2d"
+  }
+}
