@@ -1,6 +1,6 @@
 # IndicSafe — Session State
 
-Last updated: 2026-10-08 · Code-mixing fixes and QC additions committed (01dd483); pilot v0.2 transform + QC run committed by the user (e1126dd: 554 variants, 513 pass). **Telugu (te) added as 4th target language (translation + romanisation + QC, no code-mixing): built and unit-tested, NOT committed, NOT run on the pilot** (the user runs the pipeline).
+Last updated: 2026-10-08 · Telugu committed (dbdcfc1); pilot v0.2 run with Telugu committed by the user (98917f6: 614 variants, 571 pass; run `TRANSFORM_20261008T151239Z_b8ca7cbc`). **Review-sheet summary script (`scripts/summarize_reviews.py`) built and unit-tested, NOT committed**; waiting for filled sheets.
 
 ## Objective
 
@@ -193,6 +193,25 @@ QC on `TRANSFORM_20261008T085851Z_2164a890` exposed "celebrate मनाने",
   - QC: `qc_summary.json` gets `code_mix_scope` (`code_mixed` / `not_code_mixed`); te has no coverage lines and no `review_codemix_te.csv`. Its L0 variants still get the L0 English-word check.
 - **Tests:** 246 pass with `-m "not integration"` (13 new in `tests/test_telugu.py`). Two config tests that pinned the language lists were updated; `FakeTransliterator` accepts Telu. The GPU integration test now also translates te, but it was **not run** this time.
 
+## Review-sheet summary (2026-10-08; uncommitted)
+
+- **`generator/review_summary.py` + `scripts/summarize_reviews.py --run <run dir> --sheets <folder>`.**
+  - Reads `review_<lang>*.csv` and `review_codemix_<lang>*.csv` for every enabled target language (hi mr gu te). Several files per language are allowed.
+  - Reviewer = the row's `reviewer` cell, else the filename suffix (`review_hi_bhargavi.csv`), else `unknown`.
+  - A code-mix sheet is expected only for languages in `code_mixing` target_languages. A te code-mix sheet is ignored with a warning; te reports `not_applicable`.
+- **Per language and reviewer (and ALL):**
+  - translation: rated / total, mean adequacy, mean fluency, % intent Y, mean romanisation;
+  - code-mix: mean naturalness (1–3), % rated 1, % intent Y, plus the same for UNSAFE rows only;
+  - the 10 lowest-rated rows with notes. Score = ratings scaled to 0–1, intent N = 0, then averaged.
+- **Robustness:**
+  - Blank rows are skipped. A row counts as rated when any score or the intent cell is filled.
+  - Bad cells (not a number, out of range, intent not Y/N) are ignored with a warning; "4,0" is read as 4.
+  - A non-UTF-8 file (Excel's plain "CSV" save) or one missing the expected columns (e.g. `;` delimiter) is skipped. All files unreadable → status `unreadable`; no files → `no_sheet`.
+  - Every native/latin prompt id is checked against the run's `variants.jsonl`; mismatches are warned and counted.
+- **Outputs:** `review_summary.json` + `review_summary.md` in the run folder, plus a compact printed table. Per-reviewer rows appear only when there are several reviewers.
+- **Checked read-only** on the real unfilled sheets of `TRANSFORM_20261008T151239Z_b8ca7cbc`: all 7 sheets parsed, 0 prompt-id mismatches, nothing written.
+- **Tests:** `tests/test_review_summary.py` (8, small fake CSVs). Full unit suite: 254 pass (`-m "not integration"`).
+
 ## Key decisions
 
 - **Raw data stays zipped** in `data/raw/` and is never extracted or modified. All 15 checksums were verified unchanged after the work.
@@ -270,7 +289,7 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 
 ## Exact next steps
 
-0. Review and commit the Telugu addition. Then run `python -m pytest -m integration` (real IndicTrans2 now also translates te), `scripts\run_pilot_translation.py` (now hi mr gu te) and `scripts\run_qc.py --run <new run>`. Check te LaBSE scores and LID, and find a Telugu reviewer for `review_te.csv`. All romanised and code-mixed ids change with romaniser 1.2.
+0. Review and commit `scripts/summarize_reviews.py`. When filled sheets come back, ask reviewers to save as **CSV UTF-8**; `summarize_reviews.py --run data\pilot\translations\TRANSFORM_20261008T151239Z_b8ca7cbc --sheets <folder>`. (Done since: Telugu committed in dbdcfc1 and run in 98917f6.) Earlier note: review and commit the Telugu addition. Then run `python -m pytest -m integration` (real IndicTrans2 now also translates te), `scripts\run_pilot_translation.py` (now hi mr gu te) and `scripts\run_qc.py --run <new run>`. Check te LaBSE scores and LID, and find a Telugu reviewer for `review_te.csv`. All romanised and code-mixed ids change with romaniser 1.2.
 1. Review Phase 4/5: `generator/{code_mixing,code_mix_metrics,qc_pipeline,semantic}.py`, the engine / romaniser / language_qc changes, `configs/generation.yaml` (code_mixing, qc), and the run folder `TRANSFORM_20261008T085851Z_2164a890` (`qc_report.jsonl`, `qc_summary.json`).
 2. Commit in PowerShell: `git add .; git commit -m "phase 4 code-mixing, phase 5 qc pipeline, pilot v0.2 run"`. The run's manifest will still say `dirty: true`; rerun both scripts after committing if a clean manifest is wanted.
 3. Team: send the regenerated `review_{hi,mr,gu}.csv` (v0.2 run) to native speakers. They contain the UNSAFE pilot prompts in translation. Gujarati reviewers are still unconfirmed. Consider adding the code-mixed variants to the sheets: naturalness of the swaps has had no human check yet.
@@ -286,6 +305,7 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 .\.venv\Scripts\python.exe scripts\import_reviews.py    # review layer + agreement; --build [--force] -> pilot v0.2
 .\.venv\Scripts\python.exe scripts\run_pilot_translation.py   # v0.2, hi mr gu te (+ L1/L2 for hi mr gu); --no-code-mix --languages hi --limit N
 .\.venv\Scripts\python.exe scripts\run_qc.py --run data\pilot\translations\<run_id>   # --no-semantic
+.\.venv\Scripts\python.exe scripts\summarize_reviews.py --run data\pilot\translations\<run_id> --sheets <filled CSV folder>
 .\.venv\Scripts\python.exe -m pytest                          # -m integration: GPU tests (IndicTrans2, LaBSE)
 ```
 
