@@ -1,0 +1,3 @@
+# Pilot data and manifests are checksummed byte-for-byte (manifests, review
+# provenance). Never convert their line endings on commit or checkout.
+data/pilot/** -text
