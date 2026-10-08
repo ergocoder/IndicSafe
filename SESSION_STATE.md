@@ -1,6 +1,6 @@
 # IndicSafe — Session State
 
-Last updated: 2026-10-08 · Phase 2b + 3 committed (b6822ba). Pilot adjudication done; **pilot v0.2 built and committed** · next: rerun pilot translations on v0.2, native-speaker review of the pilot translations, then Phase 4
+Last updated: 2026-10-08 · **Phase 4 (code-mixing) and Phase 5 (QC pipeline) built, run on all 30 v0.2 seeds, awaiting review (not committed)** · pilot translations rerun on v0.2 (replaces the v0.1 run)
 
 ## Objective
 
@@ -76,8 +76,8 @@ Full notes: `docs/phase2b_3_notes.md`.
   - The wheel was downloaded with resume to `D:\wheels\`, because pip's 2.6 GB download kept getting reset.
   - `transformers 4.57.6`. 5.x cannot be used: the model's remote code imports `transformers.onnx`, removed in 5.0.
 - **Hugging Face:** logged in as ergocoder; access to the gated model is confirmed.
-  - Model cached in the default HF cache on C:, about 1.1 GB.
-  - **C: has only about 1.3 GB free** (2026-10-08, after the model download). Set `HF_HUB_CACHE` or the `cache_dir` option to use D:.
+  - **HF cache is on D:** `HF_HUB_CACHE=D:\hf_cache` is a user environment variable (checked 2026-10-08). It holds IndicTrans2 (1.1 GB), LaBSE (1.8 GB) and all-MiniLM-L6-v2 (unused). C: keeps only the HF token and the remote-code module copies (about 0.4 MB). C: is nearly full (13 GB free).
+  - Symlinks are not allowed on this account, so huggingface_hub runs in degraded (copy) mode. The LaBSE download failed once creating the `config.json` snapshot link; the blob was copied into place by hand (same 611 bytes).
 - **Translation** (`generator/indictrans2.py`): provider `indictrans2`.
   - Model `ai4bharat/indictrans2-en-indic-dist-200M`, pinned to commit `173b9423…`. Remote code checked: imports only torch, transformers and sentencepiece.
   - Runs fp16 on CUDA; `device: auto` falls back to fp32 on CPU. On OOM the batch is halved down to 1, then the item fails as ERROR.
@@ -99,11 +99,41 @@ Full notes: `docs/phase2b_3_notes.md`.
 - **Pipeline:** `generator/pilot_translation.py` + `scripts/run_pilot_translation.py`.
   - Batched translate → engine → romanise → QC → `review_{hi,mr,gu}.csv` (utf-8-sig, blank reviewer columns) + `pilot_translation_summary.json`.
   - Adapters register on `import generator.providers`.
-- **Pilot run** `data/pilot/translations/TRANSFORM_20261007T225125Z_7dbbfe84/` (**preliminary**, input v0.1):
-  - 90/90 translations and 90/90 romanisations SUCCEEDED; no warnings or truncation; about 155 s on the GPU.
-  - Language QC 179/180 PASS. One Marathi item is REVIEW (correct Marathi, too few markers).
+- **Pilot run:** the preliminary v0.1 run (`TRANSFORM_20261007T225125Z_7dbbfe84`) was removed (`git rm`; still in history at b6822ba). It is replaced by the v0.2 run below (Phase 4/5 section).
 - **Tests:** 180 pass, plus 1 GPU integration test (`-m integration`) that passes here and skips without torch / CUDA / the cached model.
   - 25 new unit tests. They use a fake model backend, a fake LID, and the real (fast) Aksharamukha and Lingua.
+
+## Implemented (Phase 4 + 5 — code-mixing, QC pipeline; 2026-10-08, awaiting review)
+
+- **Input = pilot v0.2.** `pilot_translation.load_pilot_seeds` reads the reviewed pilot. The human `final_label` becomes the generation seed's `intended_label` (basis text names v0.2 and the old provisional label), so every variant inherits the v0.2 label. `SeedRecord.label_status` now also allows `human_agreed` / `human_adjudicated`. Checked on the run: 0 of 564 variants differ from their seed's v0.2 final label.
+- **Code-mixing** (`generator/code_mixing.py`, provider `mt_lexical_swap`, config `generation.yaml → code_mixing`; no LLM):
+  - Tree: native L0 translation → `code_mixing` L1 / L2 (native script + English in Latin) → `transliteration` → Latn L1 / L2. 16 variants per seed. Every variant has `seed_id`, `parent_prompt_id`, `lineage`; code-mix records also carry `source_prompt_id` (the English root) in their parameters.
+  - Alignment: each English content word (stopword list in config) is matched one-to-one to a target word by (a) phonetic: the romanised target word looks like the English one (loanwords such as फिशिंग / डेटा), or (b) lexical: IndicTrans2's translation of the word in isolation equals the target word, or its stem is a prefix of it. Marathi / Gujarati case markers (configured list) are kept as their own token: स्थलांतरितांना → "immigrants ना".
+  - Swap: k aligned words go back to English. k is chosen so that the measured ratio is inside the band, nearest the band midpoint. L1's swaps are a subset of L2's. Loanwords whose romanisation already spells the English word are swapped last, because swapping them would not change the Latn variant.
+  - All alignments, swapped words and word translations are in `provider_metadata`.
+- **Measurement** (`generator/code_mix_metrics.py`, no model): word-level tags. In native-script text a word's tag follows its letters: native script → the language, Latin → English, no letters → language-independent. In Latn text each token takes its native parent's tag, position by position; a broken alignment means "unmeasurable" and FAIL. `code_mix_ratio` = en / (lang + en); CMI = 100·(1 − max/total).
+- **Band check** (`code_mix_band` engine hook, also re-run in QC): PASS inside the band, WARN/REVIEW within ±0.03, FAIL beyond. A FAIL keeps its level and is never relabelled. A failed native variant gets no Latn child (`NOT_PRODUCED`).
+- **Engine changes:** `TargetCondition` gains `code_mix_level` / `mixing_method`. `VariantRecord.code_mix_level/ratio/cmi/mixing_method` are filled. For code-mixed text the script check counts Latin letters too, and a Latin-dominated L2 is still recorded as native script if native letters are present. Transliteration keeps the parent's level.
+- **Romaniser 1.1:** Latin words are passed through untouched; Aksharamukha used to lowercase some of them ("Munich" → "munich"). This changes the romanised L0 ids too.
+- **QC pipeline** (`generator/qc_pipeline.py`, `scripts/run_qc.py --run <dir>`) → `qc_report.jsonl` (per variant, per check: status, reason, details) + `qc_summary.json`. The checks:
+  - engine-hook failures;
+  - exact duplicates (the shallower, then lower-level variant is kept);
+  - near-duplicates (char-3 Jaccard ≥ 0.85 against other seeds of the same language/script/level);
+  - script/language (the language_qc record);
+  - code-mix band (L0 variants with English words → REVIEW);
+  - length ratio vs parent;
+  - semantic similarity.
+- **Semantic check:** LaBSE (`setu4993/LaBSE`, pinned 5afa7296, ungated, Apache-2.0, fp16 on the GTX 1650, about 40 s to load). It compares cosine(English seed, native variant) against pass 0.80 / review 0.65. Latn variants inherit their native parent's score. Code-mixed variants also record their similarity to the L0 parent.
+- **Run** `data/pilot/translations/TRANSFORM_20261008T085851Z_2164a890/` (v0.2, 30 seeds; GPU about 200 s plus model load). Its manifest says `dirty: true`, because the Phase 4/5 code was uncommitted.
+  - Transformations: 90/90 translation, 174/180 code_mixing SUCCEEDED (6 band misses), 264/264 transliteration.
+  - Language QC: 563 PASS, 1 REVIEW (the Marathi item from before).
+  - **QC: 525 PASS / 30 REVIEW / 9 FAIL of 564.**
+    - FAILs: 6 L2 variants with too few alignable words. They stay at the L1 ratio (0.11–0.17) and equal L1, so each is flagged both out of band and as a duplicate. The other 3 are romanised L2 variants identical to their L1 (the extra swap was an invisible loanword).
+    - REVIEW: 20 semantic similarity 0.67–0.80 (no FAIL), 10 near the band edge, 1 LID.
+  - Measured ratios. L1: mean 0.12–0.13 (range 0.09–0.17). L2: mean 0.25–0.27. L0: 0.00 for all languages.
+  - LaBSE en↔L0 median 0.87–0.88; code-mixed variants score slightly higher (English words shared with the seed inflate similarity, so it is a weak drift signal for code-mix).
+  - Review CSVs `review_{hi,mr,gu}.csv` regenerated (same format as before; native + Latn L0 only).
+- **Tests:** 215 pass + 2 GPU integration tests (IndicTrans2, LaBSE) that pass here. New: `tests/test_code_mix.py` (25), `tests/test_qc_pipeline.py` (7), using fakes; no model needed.
 
 ## Key decisions
 
@@ -151,6 +181,13 @@ Full notes: `docs/phase2b_3_notes.md`.
 - **No database yet:** storage is JSONL files plus manifests.
 - **Duplicate prompts in a manual CSV get the same `S-MAN-<hash>` ID.** They are rejected as `duplicate_seed_id` rather than marked DUPLICATE.
 - **Manually written code-mixed seeds:** not now (team decision); possibly later.
+- **Code-mixing limits:**
+  - Alignment uses isolated-word MT, so words the MT renders differently in context are missed. A prefix match can hit a wrong inflection.
+  - There is no POS tagger, so verbs and adjectives are swapped as readily as nouns. Some outputs are odd ("removal करवा", "celebrate मनाने", "greatest बड़ी").
+  - Inflection is dropped with the swapped word.
+  - Native-script measurement cannot tell names from code-mixed words (no NER). Latn measurement is inherited from the native parent; there is no independent romanised-text tagger, because the data has no romanised hi/mr/gu with word tags.
+  - Naturalness has not been human-reviewed.
+- **Semantic check limits:** LaBSE thresholds are uncalibrated. Shared English words inflate code-mix similarity.
 
 ## Phase plan (build-guide order, guide §9)
 
@@ -161,8 +198,8 @@ Full notes: `docs/phase2b_3_notes.md`.
 | 2a | Pilot review layer: double-annotation import, agreement, adjudication → v0.2 | **Done**; pilot v0.2 built (8 adjudicated) |
 | 2b | Real adapters: IndicTrans2 translation + chosen romanisation method; pilot translation evaluation | **Done, awaiting review**; native-speaker review of the CSVs pending |
 | 3 | Language/script layer | **Done, awaiting review** (script check + Lingua/marker LID, QC records) |
-| 4 | Code-mixing engine | |
-| 5 | QC pipeline | |
+| 4 | Code-mixing engine | **Built, awaiting review** (mt_lexical_swap, L1/L2, native + Latn) |
+| 5 | QC pipeline | **Built, awaiting review** (dup / near-dup / script+LID / band / length / LaBSE semantic) |
 | 6 | Generation jobs | |
 | 7 | Human review | |
 | 8 | Dataset release (versioning, seed-level splits, exports) | |
@@ -174,12 +211,12 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 
 ## Exact next steps
 
-1. Review Phase 2b/3 code and outputs: `generator/{indictrans2,romanization,language_qc,pilot_translation,providers}.py`, `generator/vendor/`, `docs/phase2b_3_notes.md`, the run folder under `data/pilot/translations/`.
-2. Commit in PowerShell: `git add .; git commit -m "phase 2b+3 adapters, language qc, preliminary pilot translations"`.
-3. Team: send `review_hi.csv`, `review_mr.csv` and `review_gu.csv` to native speakers. The sheets contain the UNSAFE pilot prompts in translation; reviewers should know that. Gujarati reviewers are still unconfirmed.
-4. Rerun `scripts\run_pilot_translation.py --seeds data/pilot/pilot_seeds_v0.2-pilot-seeds.jsonl`. Variant ids for unchanged seeds stay the same.
-5. Use the review results to calibrate the QC thresholds and markers and to confirm IndicTrans2 as the production model.
-6. Next phase (new chat, "Read SESSION_STATE.md first."): Phase 4 code-mixing engine (hi-en / mr-en / gu-en, L1/L2). It needs mr/gu code-mix references (team sources, still to inspect).
+1. Review Phase 4/5: `generator/{code_mixing,code_mix_metrics,qc_pipeline,semantic}.py`, the engine / romaniser / language_qc changes, `configs/generation.yaml` (code_mixing, qc), and the run folder `TRANSFORM_20261008T085851Z_2164a890` (`qc_report.jsonl`, `qc_summary.json`).
+2. Commit in PowerShell: `git add .; git commit -m "phase 4 code-mixing, phase 5 qc pipeline, pilot v0.2 run"`. The run's manifest will still say `dirty: true`; rerun both scripts after committing if a clean manifest is wanted.
+3. Team: send the regenerated `review_{hi,mr,gu}.csv` (v0.2 run) to native speakers. They contain the UNSAFE pilot prompts in translation. Gujarati reviewers are still unconfirmed. Consider adding the code-mixed variants to the sheets: naturalness of the swaps has had no human check yet.
+4. Calibrate on the review results: the semantic thresholds, the code-mix bands, the stopword and clitic lists, and IndicTrans2 as the production model.
+5. Decide what to do with L2 band misses on short prompts: accept fewer L2 variants, allow lexical matches with a lower score, or add a POS/NER-aware aligner.
+6. Next phase: 6 (generation jobs).
 
 ## Commands
 
@@ -187,8 +224,9 @@ The SQLite store, exporters and splitter from the design doc's §12 are built in
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe scripts\import_seeds.py      # --no-pilot | --manual-csv <csv> | --force
 .\.venv\Scripts\python.exe scripts\import_reviews.py    # review layer + agreement; --build [--force] -> pilot v0.2
-.\.venv\Scripts\python.exe scripts\run_pilot_translation.py   # --seeds <jsonl> --languages hi mr gu --limit N
-.\.venv\Scripts\python.exe -m pytest                          # -m integration: GPU test only
+.\.venv\Scripts\python.exe scripts\run_pilot_translation.py   # v0.2 + code-mix; --no-code-mix --languages hi --limit N
+.\.venv\Scripts\python.exe scripts\run_qc.py --run data\pilot\translations\<run_id>   # --no-semantic
+.\.venv\Scripts\python.exe -m pytest                          # -m integration: GPU tests (IndicTrans2, LaBSE)
 ```
 
 If pip times out on the 2.6 GB torch wheel, download it with `curl -C -` and `pip install` the file.

@@ -56,3 +56,19 @@ def test_indictrans2_gpu_translates_and_romanises_hi_mr_gu():
         assert check_variant(settings, v, lid).lid_language == lang
         latn = engine.apply(v, TransliterationTransformation(tl))
         assert latn.ok and latn.variant.script == "Latn"
+
+
+def test_labse_scores_translation_above_unrelated_text():
+    """Real LaBSE (qc.semantic) on the GPU: a translation scores well above an unrelated sentence."""
+    settings = load_settings()
+    cfg = settings.generation.qc.semantic
+    reason = _skip_reason(cfg.model, cfg.revision, cfg.cache_dir)
+    if reason:
+        pytest.skip(reason)
+    from generator.semantic import build_encoder, cosine
+
+    enc = build_encoder(settings)
+    en, hi, other = enc.encode(["Which river flows through the city of Varanasi?",
+                                "वाराणसी शहर से कौन सी नदी बहती है?",
+                                "मुझे कल सुबह बैंक जाना है।"])
+    assert cosine(en, hi) >= cfg.pass_ > cosine(en, other)

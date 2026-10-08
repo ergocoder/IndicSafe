@@ -2,9 +2,10 @@
 # ---------------------------------------------------------------------------
 # Phase 1 uses: generator_version, random_seed, seed_validation, pilot.
 # Phase 2 uses: transformations, transformation_engine, translation,
-# transliteration, paraphrase, and qc.script; Phase 3 adds qc.language. The
-# rest of `qc` is the Phase 0 design; nothing reads it yet. It lives here so
-# later phases change configuration, not code.
+# transliteration, paraphrase, and qc.script; Phase 3 adds qc.language; Phase 4
+# adds code_mixing and qc.code_mix; Phase 5 adds qc.duplicate and qc.semantic.
+# qc.quality_score and qc.human_review are still Phase 0 design; nothing reads
+# them yet.
 # Every threshold is an initial value to calibrate on the pilot.
 
 generator_version: "0.1.0"
@@ -34,14 +35,14 @@ pilot:
 
 # ---------------- Transformation engine (Phase 2) -------------------------
 # Types are implemented in code (generator/transformation_engine.py registry);
-# this list decides which may run. A type listed as enabled but not yet
-# implemented (code_mixing, Phase 4) is refused at run time with a clear error.
+# this list decides which may run. A type listed as enabled but not
+# implemented is refused at run time with a clear error.
 transformations:
   enabled:
     - identity               # seed -> root variant (en/Latn/L0), parent of every chain
     - translation            # en -> hi / mr / gu, native script
     - transliteration        # Deva / Gujr -> Latn (romanized); also other script conversion
-    - code_mixing            # hi-en / mr-en / gu-en, levels L1, L2 (Phase 4, not implemented)
+    - code_mixing            # hi-en / mr-en / gu-en, levels L1, L2 (Phase 4)
     - paraphrase             # optional, en only for MVP
   disabled:
     - noisy_spelling
@@ -54,7 +55,9 @@ transformation_engine:
   # are recorded on the transformation record; FAIL keeps the child (for
   # audit) but blocks further transformations from it.
   validation_hooks:
-    default: [non_empty, text_integrity, expected_script, differs_from_parent, length_ratio]
+    # code_mix_band: measured code_mix_ratio must fall in the target level's
+    # band (qc.code_mix); not applicable (PASS) to variants without a level.
+    default: [non_empty, text_integrity, expected_script, differs_from_parent, length_ratio, code_mix_band]
     identity: [non_empty, text_integrity, expected_script]
   # Output/parent character-length ratio outside [min, max] -> WARN (possible
   # truncation or hallucination). Design values, to calibrate on the pilot.
@@ -108,6 +111,44 @@ transliteration:
         schwa_deletion: true      # Aksharamukha RemoveSchwaHindi (Gujarati goes through Devanagari)
         final_nasal_as_n: true    # word-final anusvara/candrabindu -> "n" (main, hain, hoon)
 
+# Code-mixing (Phase 4): native-script L0 translation -> L1 / L2 with English.
+# No LLM. mt_lexical_swap aligns English content words of the source to words
+# of the translation, then swaps a controlled number of them back to English
+# so the measured code_mix_ratio lands in the level band (languages.yaml).
+# Romanised code-mixed variants are the transliteration of the native ones.
+code_mixing:
+  default_provider: mt_lexical_swap
+  levels: [L1, L2]                    # generated per language (must be in the language's code_mix_levels)
+  providers:
+    mt_lexical_swap:
+      type: rule_based
+      enabled: true
+      target_languages: [hi, mr, gu]
+      model: null                     # alignment uses translation.default_provider (IndicTrans2)
+      options:
+        target_point: 0.5             # aim at this fraction of the band (0.5 = midpoint)
+        min_word_chars: 3             # shorter English words are not swapped
+        phonetic_min_similarity: 0.70 # romanised target word vs English word: loanword match
+        min_stem_chars: 2             # shortest native stem accepted for a prefix match
+        # English words never swapped (function words, auxiliaries, pronouns).
+        stopwords_en: [a, an, the, and, or, but, if, of, to, in, on, at, by, for, from, with, without,
+                       into, onto, about, as, than, then, that, this, these, those, there, here,
+                       is, are, was, were, be, been, being, am, do, does, did, done, doing, have, has,
+                       had, can, could, will, would, shall, should, may, might, must, not, no, yes,
+                       i, me, my, mine, we, us, our, you, your, he, him, his, she, her, it, its, they,
+                       them, their, what, which, who, whom, whose, when, where, why, how, some, any,
+                       all, each, every, other, such, own, same, so, too, very, just, also, only,
+                       one, ones, more, most, much, many, few, out, up, down, over, under, again,
+                       between, through, during, before, after, while, because, ways, way]
+        # Case markers / postpositions written attached to the noun. When a
+        # swapped word ends in one, it is kept as a separate token after the
+        # English word ("bank च्या"), as in written code-mixing. Single-letter
+        # markers (Marathi त) are left out: too many words just end in them.
+        clitics:
+          hi: []
+          mr: [च्या, ची, चा, चे, ला, ना, ने, मध्ये, साठी, कडून, कडे, तून, वर, शी, पासून, बद्दल]
+          gu: [ના, ની, નું, નો, નાં, માં, થી, ને, એ, માટે, પર, વિશે]
+
 paraphrase:
   default_provider: null              # optional; LLM adapter off by default
   languages: [en]                     # MVP: English paraphrase only
@@ -130,11 +171,21 @@ qc:
     native_min_share: 0.85        # native-script letters / all letters, native condition
     romanized_min_share: 0.95     # Latn letters / all letters, romanized condition
   code_mix:
+    # Measured ratio outside the band by <= tolerance -> WARN / REVIEW; further -> FAIL.
     tolerance: 0.03               # allowed distance outside the level band before FAIL
   duplicate:
-    near_dup_char3_jaccard: 0.85  # lexical near-duplicate
-    near_dup_embedding_cosine: 0.95
+    near_dup_char3_jaccard: 0.85  # lexical near-duplicate (other seeds, same language + script)
+    near_dup_embedding_cosine: 0.95   # design value; not used yet (embedding near-dup)
   semantic:
+    # Cosine(English seed, variant) with a multilingual sentence encoder.
+    # Romanised variants inherit the score of their native-script parent
+    # (romanisation is a deterministic script change; the encoder is unreliable
+    # on romanised hi / mr / gu).
+    model: setu4993/LaBSE         # ungated, Apache-2.0, 471M params; LaBSE pooler output
+    revision: 5afa72968dfe068421082cbc30411073b15a6693   # HF commit, 2026-10-08
+    device: auto                  # auto | cuda | cpu; fp16 on CUDA
+    batch_size: 16
+    cache_dir: null               # null = HF_HUB_CACHE (D:\hf_cache on this machine)
     pass: 0.80
     review: 0.65                  # below -> FAIL (semantic_drift)
   quality_score:

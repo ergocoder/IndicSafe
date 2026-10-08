@@ -24,3 +24,7 @@ aksharamukha==2.3
 
 # Phase 3 — language ID (generator/language_qc.py).
 lingua-language-detector==2.2.0
+
+# Phase 4 (code-mixing) and Phase 5 (QC) add no packages: alignment reuses
+# IndicTrans2, and the semantic check runs LaBSE (setu4993/LaBSE, ungated)
+# through transformers.

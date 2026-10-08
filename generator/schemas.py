@@ -59,7 +59,10 @@ class SeedRecord(BaseModel):
     category_status: CategoryStatus
     intended_label: Label
     intended_label_basis: str
-    label_status: Literal["provisional"] = "provisional"
+    # "provisional" at import; a reviewed pilot (v0.2+) loaded for generation
+    # carries the human status, with the human label as intended_label
+    # (generator.pilot_translation.load_pilot_seeds).
+    label_status: Literal["provisional", "human_agreed", "human_adjudicated"] = "provisional"
     final_label: Label | None = None
 
     # validation

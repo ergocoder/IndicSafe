@@ -5,7 +5,8 @@ Checks, using the thresholds in generation.yaml → qc:
 1. Script: the measured dominant script must be the expected one (the
    language's native script, or its romanized script when the variant is
    transliterated) with share >= qc.script.native_min_share /
-   romanized_min_share. Same rule as the engine's `expected_script` hook.
+   romanized_min_share. Same rule as the engine's `expected_script` hook;
+   for code-mixed text the partner language's script (Latin) counts too.
 2. Language ID (native-script variants only):
    - Lingua (offline, prebuilt wheels on Windows) scores the configured
      candidate languages. It separates en / gu / Devanagari reliably but is
@@ -36,6 +37,7 @@ from pydantic import BaseModel, ConfigDict
 from backend.config import Settings
 from generator.schemas import VariantRecord
 from generator.text_utils import dominant_script
+from generator.transformation_engine import allowed_script_share, script_matches
 
 LANGUAGE_QC_VERSION = "1.0"
 CheckStatus = Literal["PASS", "REVIEW", "FAIL", "NOT_APPLICABLE"]
@@ -145,7 +147,9 @@ def check_variant(settings: Settings, v: VariantRecord, lid: LanguageIdentifier)
     native = not v.is_transliterated
     min_share = qc.script.native_min_share if native else qc.script.romanized_min_share
     measured, share = dominant_script(v.prompt, scripts)
-    if measured != exp_script:
+    if v.secondary_language is not None:   # code-mixed: partner-language (Latin) letters are expected
+        share = allowed_script_share(settings, v.prompt, exp_script, v.secondary_language)
+    if not script_matches(settings, v.prompt, measured, exp_script, v.secondary_language):
         script_status, script_reason = "FAIL", "script_mismatch"
     elif share < min_share:
         script_status, script_reason = "FAIL", "low_script_share"

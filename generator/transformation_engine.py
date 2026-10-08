@@ -24,8 +24,13 @@ Records are frozen and the parent is never modified. A child that fails a
 validation hook is kept (status VALIDATION_FAILED) for audit, but cannot be
 used as a parent unless the caller explicitly allows it.
 
-Not here (later phases): language identification, code-mixing, semantic and
-label-consistency checks, batch generation jobs, LLM adapters.
+Code-mixed children carry their target level on the TargetCondition; the
+`code_mix_band` hook measures code_mix_ratio / CMI (generator/code_mix_metrics)
+and FAILs a variant whose measured ratio misses the level's band. The level is
+never changed to fit the measurement.
+
+Not here: language identification (language_qc), semantic and
+label-consistency checks (qc_pipeline), batch generation jobs, LLM adapters.
 """
 
 from __future__ import annotations
@@ -48,6 +53,7 @@ from backend.config import (
     Settings,
     resolve_inside,
 )
+from generator import code_mix_metrics as cmm
 from generator.provenance import build_run_manifest, iso, new_run_id, sha256_file, utc_now
 from generator.schemas import (
     GenerationMethod,
@@ -57,7 +63,7 @@ from generator.schemas import (
     VariantRecord,
 )
 from generator.seed_manager import _atomic_write, _write_json
-from generator.text_utils import content_hash, dominant_script, has_control_chars, normalize_text
+from generator.text_utils import content_hash, dominant_script, has_control_chars, normalize_text, script_profile
 
 
 class TransformationError(ValueError):
@@ -100,7 +106,7 @@ class ProviderOutput:
 
 ProviderFactory = Callable[[str, ProviderConfig], Any]
 _PROVIDER_FACTORIES: dict[tuple[str, str], ProviderFactory] = {}
-PROVIDER_KINDS = ("translation", "transliteration", "paraphrase")
+PROVIDER_KINDS = ("translation", "transliteration", "paraphrase", "code_mixing")
 
 
 def register_provider(kind: str, name: str, factory: ProviderFactory) -> None:
@@ -145,6 +151,8 @@ class TargetCondition:
     script: str
     secondary_language: str | None = None
     is_transliterated: bool = False
+    code_mix_level: str | None = None      # target level (L1, L2, ...) for code-mixed text
+    mixing_method: str | None = None
 
 
 @dataclass(frozen=True)
@@ -241,17 +249,49 @@ def _text_integrity(ctx: HookContext) -> HookResult:
     return HookResult(hook="text_integrity", status="PASS")
 
 
+def allowed_script_share(settings: Settings, text: str, script: str,
+                         secondary_language: str | None) -> float:
+    """Share of letters in `script`, plus the partner language's script for code-mixed text."""
+    scripts = {k: v.ranges for k, v in settings.languages.scripts.items()}
+    allowed = {script}
+    if secondary_language is not None:
+        allowed.add(settings.languages.languages[secondary_language].native_script)
+    prof = script_profile(text, scripts)
+    total = sum(prof.values())
+    return round(sum(prof[s] for s in allowed) / total, 4) if total else 0.0
+
+
+def script_matches(settings: Settings, text: str, measured: str | None, expected: str,
+                   secondary_language: str | None) -> bool:
+    """Dominant script is the expected one. Code-mixed text may be dominated by the partner
+    script (long English words at L2) as long as the expected script is present too."""
+    if measured == expected:
+        return True
+    if secondary_language is None:
+        return False
+    partner = settings.languages.languages[secondary_language].native_script
+    scripts = {k: v.ranges for k, v in settings.languages.scripts.items()}
+    return measured == partner and script_profile(text, scripts).get(expected, 0) > 0
+
+
 @validation_hook("expected_script")
 def _expected_script(ctx: HookContext) -> HookResult:
     lang = ctx.settings.languages.languages[ctx.target.language]
     qc = ctx.settings.generation.qc.script
     native = ctx.target.script == lang.native_script
     min_share = qc.native_min_share if native else qc.romanized_min_share
+    share = ctx.script_share
+    if ctx.target.secondary_language is not None:   # English words in Latin are expected
+        share = allowed_script_share(ctx.settings, ctx.text, ctx.target.script,
+                                     ctx.target.secondary_language)
     details = {"expected": ctx.target.script, "measured": ctx.measured_script,
-               "share": ctx.script_share, "min_share": min_share}
-    if ctx.measured_script != ctx.target.script:
+               "share": share, "min_share": min_share}
+    if ctx.target.secondary_language is not None:
+        details["counts_partner_script"] = True
+    if not script_matches(ctx.settings, ctx.text, ctx.measured_script, ctx.target.script,
+                          ctx.target.secondary_language):
         return HookResult(hook="expected_script", status="FAIL", reason="script_mismatch", details=details)
-    if ctx.script_share < min_share:
+    if share < min_share:
         return HookResult(hook="expected_script", status="FAIL", reason="low_script_share", details=details)
     return HookResult(hook="expected_script", status="PASS", details=details)
 
@@ -272,6 +312,32 @@ def _length_ratio(ctx: HookContext) -> HookResult:
         return HookResult(hook="length_ratio", status="WARN", reason="length_ratio_out_of_range",
                           details=details)
     return HookResult(hook="length_ratio", status="PASS", details=details)
+
+
+def measure_code_mix(settings: Settings, text: str, language: str, is_transliterated: bool,
+                     parent_text: str | None) -> cmm.CodeMixMeasure | None:
+    """Measure against the language's code_mix_partner; None if it has none or alignment fails."""
+    lang = settings.languages.languages[language]
+    if lang.code_mix_partner is None:
+        return None
+    scripts = {k: v.ranges for k, v in settings.languages.scripts.items()}
+    partner_script = settings.languages.languages[lang.code_mix_partner].native_script
+    return cmm.measure(text, native_script=lang.native_script, partner_script=partner_script,
+                       scripts=scripts, is_transliterated=is_transliterated, parent_text=parent_text)
+
+
+@validation_hook("code_mix_band")
+def _code_mix_band(ctx: HookContext) -> HookResult:
+    if ctx.target.code_mix_level is None:
+        return HookResult(hook="code_mix_band", status="PASS", details={"applicable": False})
+    m = measure_code_mix(ctx.settings, ctx.text, ctx.target.language, ctx.target.is_transliterated,
+                         ctx.parent_text)
+    status, reason, details = cmm.band_check(
+        m.ratio if m else None, ctx.target.code_mix_level, cmm.level_bands(ctx.settings),
+        ctx.settings.generation.qc.code_mix.tolerance)
+    if m is not None:
+        details.update(m.as_dict())
+    return HookResult(hook="code_mix_band", status=status, reason=reason, details=details)
 
 
 # --------------------------------------------------------------------- engine
@@ -470,6 +536,13 @@ class TransformationEngine:
         failures = [f"{r.hook}:{r.reason}" for r in results if r.status == "FAIL"]
         vstatus = "FAIL" if failures else ("WARN" if any(r.status == "WARN" for r in results) else "PASS")
         now = self._now()
+        band = next((r.details for r in results if r.hook == "code_mix_band"), {})
+        if target.secondary_language is not None and script_matches(
+                self.settings, text, script, target.script, target.secondary_language):
+            # Code-mixed text written in the target script with English in Latin: recorded as the
+            # target script even when English letters dominate (measured script is in the hook details).
+            script = target.script
+            share = allowed_script_share(self.settings, text, target.script, target.secondary_language)
 
         variant = VariantRecord(
             prompt_id=prompt_id,
@@ -482,6 +555,10 @@ class TransformationEngine:
             secondary_language=target.secondary_language,
             script=script,
             is_transliterated=target.is_transliterated,
+            code_mix_level=target.code_mix_level,
+            code_mix_ratio=band.get("code_mix_ratio"),
+            cmi=band.get("cmi"),
+            mixing_method=target.mixing_method,
             transformation_type=ttype,
             generation_method=info.generation_method,
             generator_model=info.model,

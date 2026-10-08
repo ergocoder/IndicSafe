@@ -1,8 +1,10 @@
-"""Pilot translation run: seeds → en root → hi/mr/gu native → Latn, plus language QC
-and native-speaker review sheets.
+"""Pilot translation run: seeds → en root → hi/mr/gu native → Latn, code-mixed L1/L2
+(native + Latn), plus language QC and native-speaker review sheets.
 
     for each language:  translate (batched, cached)  ─► engine.apply per root
     for each native child that passed validation:     ─► transliteration
+                                                      ─► code_mixing per level (if a mixer is given)
+    for each code-mixed child that passed validation: ─► transliteration
     every variant                                     ─► language_qc.check_variant
 
 Outputs in <out_dir>/<run_id>/ (engine export plus):
@@ -11,9 +13,9 @@ Outputs in <out_dir>/<run_id>/ (engine export plus):
                               blank reviewer columns (utf-8-sig for Excel)
     pilot_translation_summary.json   inputs, providers, counts, output checksums
 
-The pilot input is preliminary (v0.1, before adjudication); the run is meant to
-be repeated on v0.2. Variant ids depend only on prompt text, so unchanged seeds
-keep their ids.
+Input: a reviewed pilot (v0.2: human final labels) via `load_pilot_seeds`;
+every variant inherits the seed's human label as `intended_label`. Variant
+ids depend only on prompt text, so unchanged seeds keep their ids.
 """
 
 from __future__ import annotations
@@ -23,10 +25,11 @@ import io
 import json
 from collections import Counter
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from backend.config import Settings
+from generator.code_mixing import CodeMixer, CodeMixingTransformation
 from generator.language_qc import LanguageIdentifier, LanguageQCRecord, check_variant
 from generator.provenance import sha256_file
 from generator.schemas import SeedRecord, VariantRecord
@@ -34,6 +37,28 @@ from generator.seed_manager import _atomic_write, _write_json
 from generator.transformation_engine import TransformationEngine
 from generator.translation import TranslationProvider, TranslationTransformation
 from generator.transliteration import Transliterator, TransliterationTransformation
+
+def load_pilot_seeds(path: Path) -> tuple[list[SeedRecord], str | None]:
+    """Seeds plus dataset_version. Reviewed records (final_label set) become generation seeds whose
+    intended_label is the human final label; the review block stays in the pilot file."""
+    seeds, version = [], None
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            if not line.strip():
+                continue
+            d = json.loads(line)
+            version = d.pop("dataset_version", version)
+            d.pop("parent_dataset_version", None)
+            d.pop("review", None)
+            final = d.get("final_label")
+            if final is not None:
+                d["intended_label_basis"] = (
+                    f"Human final label of pilot {version} ({d['label_status']}); "
+                    f"provisional source-derived label was {d['intended_label']}.")
+                d["intended_label"], d["final_label"] = final, None
+            seeds.append(SeedRecord.model_validate(d))
+    return seeds, version
+
 
 REVIEW_COLUMNS = [
     "review_id", "seed_id", "language", "provisional_label", "category", "source_prompt_en",
@@ -54,6 +79,8 @@ class PilotTranslationResult:
     qc: dict[str, LanguageQCRecord]                       # prompt_id -> record
     languages: list[str]
     lid_detector: str
+    # (seed_id, lang, level, script) -> code-mixed variant (None: not produced)
+    code_mixed: dict[tuple[str, str, str, str], VariantRecord | None] = field(default_factory=dict)
 
 
 def run_pilot_translation(
@@ -65,12 +92,16 @@ def run_pilot_translation(
     languages: list[str],
     *,
     engine: TransformationEngine | None = None,
+    code_mixer: CodeMixer | None = None,
 ) -> PilotTranslationResult:
     engine = engine or TransformationEngine(settings)
     roots = {s.seed_id: engine.root(s).variant for s in seeds}
     mt, tl = TranslationTransformation(translator), TransliterationTransformation(transliterator)
+    cm = CodeMixingTransformation(code_mixer, engine.variants) if code_mixer else None
+    levels = settings.generation.code_mixing.levels
     native: dict = {}
     latin: dict = {}
+    code_mixed: dict = {}
     for lang in languages:
         script = settings.languages.languages[lang].native_script
         # one batched pass; the engine's per-item calls are then served from the provider cache
@@ -86,9 +117,23 @@ def run_pilot_translation(
             latin[(sid, lang)] = None
             if res.variant is not None and res.variant.validation_status != "FAIL":
                 latin[(sid, lang)] = engine.apply(res.variant, tl).variant
+        if cm is None:
+            continue
+        script = settings.languages.languages[lang].native_script
+        code_mixer.prepare([r.prompt for r in roots.values()], lang)
+        for sid in roots:
+            parent = native[(sid, lang)]
+            for level in levels:
+                mixed = None
+                if parent is not None and parent.validation_status != "FAIL":
+                    mixed = engine.apply(parent, cm, {"level": level}).variant
+                code_mixed[(sid, lang, level, script)] = mixed
+                code_mixed[(sid, lang, level, "Latn")] = (
+                    engine.apply(mixed, tl).variant
+                    if mixed is not None and mixed.validation_status != "FAIL" else None)
     qc = {pid: check_variant(settings, v, lid) for pid, v in engine.variants.items()}
     return PilotTranslationResult(engine, roots, native, latin, qc, list(languages),
-                                  f"{lid.name}-{lid.version}")
+                                  f"{lid.name}-{lid.version}", code_mixed)
 
 
 def _qc_cell(v: VariantRecord | None, qc: dict[str, LanguageQCRecord]) -> str:
@@ -131,7 +176,7 @@ def review_rows(result: PilotTranslationResult, lang: str) -> list[dict]:
 
 
 def write_outputs(result: PilotTranslationResult, settings: Settings, out_dir: Path,
-                  *, seeds_path: Path | None = None) -> dict[str, Path]:
+                  *, seeds_path: Path | None = None, dataset_version: str | None = None) -> dict[str, Path]:
     paths = result.engine.export(out_dir)
     run_dir = paths["manifest"].parent
     qc_path = run_dir / "language_qc.jsonl"
@@ -150,10 +195,12 @@ def write_outputs(result: PilotTranslationResult, settings: Settings, out_dir: P
     trans = result.engine.transformations.values()
     summary = {
         "run_id": result.engine.run_id,
-        "status": "preliminary: input pilot is v0.1 (before adjudication); rerun on v0.2",
         "input_seeds": {"path": str(seeds_path) if seeds_path else None,
                         "sha256": sha256_file(seeds_path) if seeds_path else None,
-                        "n": len(result.roots)},
+                        "dataset_version": dataset_version,
+                        "n": len(result.roots),
+                        "intended_label_counts": dict(sorted(Counter(
+                            r.intended_label for r in result.roots.values()).items()))},
         "languages": result.languages,
         "providers": sorted({f"{t.transformation_type}: {t.provider} {t.provider_version} {t.generator_model}"
                              for t in trans}),
@@ -167,6 +214,14 @@ def write_outputs(result: PilotTranslationResult, settings: Settings, out_dir: P
         },
         "transformations_by_type_status": dict(sorted(Counter(
             f"{t.transformation_type}:{t.status}" for t in trans).items())),
+        "code_mix": {
+            "levels": settings.generation.code_mixing.levels,
+            "bands": {k: [v.min_ratio, v.max_ratio] for k, v in settings.languages.code_mix_levels.items()},
+            "tolerance": settings.generation.qc.code_mix.tolerance,
+            "slots_by_lang_level_script_status": dict(sorted(Counter(
+                f"{lang}/{level}/{script}:{v.validation_status if v else 'NOT_PRODUCED'}"
+                for (_, lang, level, script), v in result.code_mixed.items()).items())),
+        },
         "outputs": {p.name: sha256_file(p) for k, p in paths.items() if k != "manifest"},
     }
     sp = run_dir / "pilot_translation_summary.json"

@@ -301,6 +301,10 @@ class ParaphraseConfig(AdapterConfig):
     languages: list[str] = []
 
 
+class CodeMixingConfig(AdapterConfig):
+    levels: list[str] = Field(min_length=1)   # levels generated per language, e.g. [L1, L2]
+
+
 class ScriptQCConfig(BaseModel):
     model_config = ConfigDict(extra="allow", frozen=True)
 
@@ -322,6 +326,33 @@ class LanguageQCConfig(_Strict):
         return self
 
 
+class CodeMixQCConfig(_Strict):
+    tolerance: float = Field(ge=0.0, le=0.5)
+
+
+class DuplicateQCConfig(_Strict):
+    near_dup_char3_jaccard: float = Field(gt=0.0, le=1.0)
+    near_dup_embedding_cosine: float = Field(gt=0.0, le=1.0)
+
+
+class SemanticQCConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    model: str
+    revision: str | None = None
+    device: Literal["auto", "cuda", "cpu"] = "auto"
+    batch_size: int = Field(default=16, ge=1)
+    cache_dir: str | None = None
+    pass_: float = Field(alias="pass", ge=0.0, le=1.0)
+    review: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "SemanticQCConfig":
+        if self.review > self.pass_:
+            raise ValueError("qc.semantic.review must be <= pass")
+        return self
+
+
 class QCConfig(BaseModel):
     # extra="allow": only the parts used so far are typed; the remaining QC
     # design blocks are validated when their phase is implemented.
@@ -329,6 +360,9 @@ class QCConfig(BaseModel):
 
     script: ScriptQCConfig
     language: LanguageQCConfig
+    code_mix: CodeMixQCConfig
+    duplicate: DuplicateQCConfig
+    semantic: SemanticQCConfig
 
 
 class GenerationConfig(BaseModel):
@@ -345,6 +379,7 @@ class GenerationConfig(BaseModel):
     translation: AdapterConfig
     transliteration: AdapterConfig
     paraphrase: ParaphraseConfig
+    code_mixing: CodeMixingConfig
     qc: QCConfig
 
 
@@ -380,7 +415,7 @@ class Settings(BaseModel):
                 raise ValueError(f"taxonomy mapping for unknown source {sid!r}")
         gen = self.generation
         langs = self.languages.languages
-        for kind in ("translation", "transliteration", "paraphrase"):
+        for kind in ("translation", "transliteration", "paraphrase", "code_mixing"):
             for pname, p in getattr(gen, kind).providers.items():
                 for lang in p.target_languages:
                     if lang not in langs:
@@ -388,6 +423,11 @@ class Settings(BaseModel):
         for lang in gen.paraphrase.languages:
             if lang not in langs:
                 raise ValueError(f"paraphrase language {lang!r} not in languages.yaml")
+        for pname, p in gen.code_mixing.providers.items():
+            for lang in p.target_languages:
+                missing = [lv for lv in gen.code_mixing.levels if lv not in langs[lang].code_mix_levels]
+                if missing:
+                    raise ValueError(f"code_mixing levels {missing} not allowed for {lang!r} in languages.yaml")
         for lang in gen.qc.language.candidates:
             if lang not in langs:
                 raise ValueError(f"qc.language candidate {lang!r} not in languages.yaml")

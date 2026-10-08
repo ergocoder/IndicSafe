@@ -90,6 +90,8 @@ class TransliterationTransformation(Transformation):
                 script=target,
                 secondary_language=parent.secondary_language,
                 is_transliterated=target != lang.native_script,
+                code_mix_level=parent.code_mix_level,     # romanised code-mix keeps the level ...
+                mixing_method=parent.mixing_method,       # ... and is band-checked again
             ),
         )
 
