@@ -1,8 +1,8 @@
 {
-  "run_id": "REVIEW_20261008T073321Z_7dbbfe84",
+  "run_id": "REVIEW_20261008T074514Z_7dbbfe84",
   "run_type": "pilot_review_build",
-  "started_at": "2026-10-08T07:33:21Z",
-  "finished_at": "2026-10-08T07:33:21Z",
+  "started_at": "2026-10-08T07:45:14Z",
+  "finished_at": "2026-10-08T07:45:14Z",
   "generator_version": "0.1.0",
   "taxonomy_version": "1.0",
   "taxonomy_status": "frozen",
@@ -17,7 +17,7 @@
   },
   "source_files": {},
   "git": {
-    "commit": "deb09075363fdc242d540f30985db801248e775d",
+    "commit": "e1b1bcb1cb74f12e8bf6e62994b70fd734bd7160",
     "dirty": false
   },
   "environment": {
@@ -39,7 +39,7 @@
     "data/pilot/reviews/category_mapping_v0.1.csv": "cdd782272cee8644ff0684fcb77d547049a9722ddad0adcee6b21df0d7832119",
     "data/pilot/reviews/pilot_seeds_v0.1-pilot-seeds_bhargavi_annotated.csv": "e4562f5962b1892d2c2b3db8c8242bd3d0307644c614075b58a1f6adc39a50e9",
     "data/pilot/reviews/pilot_seeds_v0.1-pilot-seeds_swasthik_annotated.csv": "6c2c256cce441b2005d9d3ad75bde1d2bd01815095536e73aaf32ab090257204",
-    "data/pilot/reviews/adjudication_worksheet_v0.1.csv": "0f874981edae10426f897a952068f79941342ca7ff18f63e90f717f13c4f5969"
+    "data/pilot/reviews/adjudication_worksheet_v0.1.csv": "0054ab870a644ee6e2815130d52552f53727e417374452910dfc2c554bdd9e9e"
   },
   "agreement": {
     "annotators": [
@@ -120,7 +120,7 @@
   },
   "label_note": "final_label comes from the two annotators where they agree on label and category, otherwise from the team's adjudication worksheet.",
   "outputs": {
-    "pilot_seeds_v0.2-pilot-seeds.jsonl": "27b284b3537c64c6302fd4b961393f84c78bd18978140512a497e2cbe8650157",
-    "pilot_seeds_v0.2-pilot-seeds.csv": "b1e445d3b2b7e4c3f65ec3d72beccc6708bc91046e2e26cb8d37ca550fb70fdc"
+    "pilot_seeds_v0.2-pilot-seeds.jsonl": "c0fb78158048b5a1e4d16a38b144dcaa4885af4712ba36fc884944e1bc274412",
+    "pilot_seeds_v0.2-pilot-seeds.csv": "ca65538f1ee26aaa0cf284c09d8d641d41af2113fc59265878ede36145e90187"
   }
 }
